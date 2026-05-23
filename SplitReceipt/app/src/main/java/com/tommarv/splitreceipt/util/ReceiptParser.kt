@@ -7,56 +7,45 @@ object ReceiptParser {
     
     fun parseText(visionText: Text): List<Pair<String, Double>> {
         val items = mutableListOf<Pair<String, Double>>()
-        
         val allLines = visionText.textBlocks.flatMap { it.lines }
         if (allLines.isEmpty()) return emptyList()
 
-        val sortedLines = allLines.sortedBy { it.boundingBox?.top ?: 0 }
+        // 1. Group lines into rows using a more robust overlap algorithm
+        val rows = groupLinesIntoRows(allLines)
 
-        val rows = mutableListOf<MutableList<Text.Line>>()
-        for (line in sortedLines) {
-            val lineTop = line.boundingBox?.top ?: 0
-            val lineBottom = line.boundingBox?.bottom ?: 0
-            val lineHeight = lineBottom - lineTop
-            
-            val matchingRow = rows.find { row ->
-                val rowTop = row.first().boundingBox?.top ?: 0
-                val rowBottom = row.first().boundingBox?.bottom ?: 0
-                val rowHeight = rowBottom - rowTop
-                abs(lineTop - rowTop) < (rowHeight / 2)
-            }
-            
-            if (matchingRow != null) {
-                matchingRow.add(line)
-            } else {
-                rows.add(mutableListOf(line))
-            }
-        }
+        // 2. Constants for parsing
+        val priceRegex = Regex("""(\d+[\.,]\d{2})\b""")
+        val quantityRegex = Regex("""^(\d+\s*x\s*)|(\d+[\.,]\d{3}\s*)""", RegexOption.IGNORE_CASE)
+        val forbiddenWords = listOf(
+            "totale", "pagato", "resto", "euro", "p.iva", "documento", 
+            "gestionale", "contante", "subtotale", "fiscal", "tesser", "punti"
+        )
 
-        val priceRegex = Regex("""(\d+[\.,]\d{2})""")
-        val quantityRegex = Regex("""^\d+\s*x\s*""", RegexOption.IGNORE_CASE)
-        val forbiddenWords = listOf("totale", "pagato", "resto", "euro", "p.iva", "documento", "gestionale")
-
+        // 3. Process each row
         for (row in rows) {
             val sortedRow = row.sortedBy { it.boundingBox?.left ?: 0 }
             val fullLineText = sortedRow.joinToString(" ") { it.text }.trim()
 
-            if (forbiddenWords.any { fullLineText.contains(it, ignoreCase = true) }) continue
+            // Skip lines that clearly aren't items
+            if (fullLineText.isEmpty() || forbiddenWords.any { fullLineText.contains(it, ignoreCase = true) }) continue
 
-            val match = priceRegex.find(fullLineText)
-            if (match != null) {
-                val priceString = match.groupValues[1].replace(",", ".")
+            // Look for prices
+            val matches = priceRegex.findAll(fullLineText).toList()
+            if (matches.isNotEmpty()) {
+                // Usually the last price on the line is the actual item price (avoiding quantities/codes)
+                val lastMatch = matches.last()
+                val priceString = lastMatch.groupValues[1].replace(",", ".")
                 val price = priceString.toDoubleOrNull()
                 
-                if (price != null) {
-                    var name = fullLineText.substring(0, match.range.first).trim()
-                    if (name.isEmpty()) {
-                        name = fullLineText.substring(match.range.last + 1).trim()
-                    }
+                if (price != null && price > 0) {
+                    // Extract name: everything before the price, or the longest segment
+                    var name = fullLineText.substring(0, lastMatch.range.first).trim()
                     
-                    name = quantityRegex.replace(name, "")
-                    
-                    if (name.isNotEmpty() && name.length > 1) {
+                    // Cleanup name
+                    name = quantityRegex.replace(name, "").trim()
+                    name = name.trim { !it.isLetterOrDigit() }
+
+                    if (name.length >= 2) {
                         items.add(normalizeName(name) to price)
                     }
                 }
@@ -64,6 +53,35 @@ object ReceiptParser {
         }
         
         return items
+    }
+
+    /**
+     * Groups lines that are on the same horizontal plane.
+     */
+    private fun groupLinesIntoRows(lines: List<Text.Line>): List<List<Text.Line>> {
+        val sortedLines = lines.sortedBy { it.boundingBox?.top ?: 0 }
+        val rows = mutableListOf<MutableList<Text.Line>>()
+
+        for (line in sortedLines) {
+            val lineBox = line.boundingBox ?: continue
+            val lineCenterY = (lineBox.top + lineBox.bottom) / 2
+
+            val matchingRow = rows.find { row ->
+                val rowBox = row.first().boundingBox ?: return@find false
+                val rowHeight = rowBox.bottom - rowBox.top
+                // If the center of the new line is within the vertical bounds of the row
+                // with a small tolerance, they belong together.
+                val tolerance = rowHeight / 3
+                lineCenterY in (rowBox.top - tolerance)..(rowBox.bottom + tolerance)
+            }
+
+            if (matchingRow != null) {
+                matchingRow.add(line)
+            } else {
+                rows.add(mutableListOf(line))
+            }
+        }
+        return rows
     }
 
     private fun normalizeName(name: String): String {
@@ -74,10 +92,10 @@ object ReceiptParser {
             "dal", "dallo", "dalla", "dai", "dagli", "dalle",
             "nel", "nello", "nella", "nei", "negli", "nelle",
             "sul", "sullo", "sulla", "sui", "sugli", "sulle",
-            "e", "o", "ma", "se", "che", "né", "x", "con"
+            "e", "o", "ma", "se", "che", "né", "x"
         )
 
-        return name.lowercase().split(" ")
+        return name.lowercase().split(Regex("""\s+"""))
             .filter { it.isNotBlank() }
             .mapIndexed { index, word ->
                 if (index == 0 || !lowercaseWords.contains(word)) {
