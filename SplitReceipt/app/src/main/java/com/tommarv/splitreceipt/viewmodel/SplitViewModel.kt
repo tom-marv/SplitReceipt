@@ -38,8 +38,6 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun loadSavedNames(): List<String> {
         val set = sharedPrefs.getStringSet("saved_names", emptySet()) ?: emptySet()
-        // SharedPreferences stores as Unordered Set, we need a list to maintain our custom order
-        // We will store the order in a separate string to persist it correctly
         val orderString = sharedPrefs.getString("names_order", "") ?: ""
         if (orderString.isEmpty()) return set.toList()
         
@@ -55,17 +53,37 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
             .apply()
     }
 
+    private fun normalizeText(text: String): String {
+        val lowercaseWords = setOf(
+            "di", "a", "da", "in", "con", "su", "per", "tra", "fra",
+            "del", "dello", "della", "dei", "degli", "delle",
+            "al", "allo", "alla", "ai", "agli", "alle",
+            "dal", "dallo", "dalla", "dai", "dagli", "dalle",
+            "nel", "nello", "nella", "nei", "negli", "nelle",
+            "sul", "sullo", "sulla", "sui", "sugli", "sulle",
+            "e", "o", "ma", "se", "che", "né", "x", "con"
+        )
+
+        return text.lowercase().split(" ")
+            .filter { it.isNotBlank() }
+            .mapIndexed { index, word ->
+                if (index == 0 || !lowercaseWords.contains(word)) {
+                    word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                } else {
+                    word
+                }
+            }.joinToString(" ")
+    }
+
     fun addPerson(name: String) {
-        val trimmedName = name.trim()
+        val trimmedName = normalizeText(name.trim())
         if (trimmedName.isBlank()) return
         
-        // Prevent adding duplicate people in the current session
         if (_people.value.any { it.name.equals(trimmedName, ignoreCase = true) }) return
 
         val newPerson = Person(name = trimmedName)
         _people.update { it + newPerson }
         
-        // Save to history if new
         val currentHistory = _savedNames.value.toMutableList()
         if (!currentHistory.any { it.equals(trimmedName, ignoreCase = true) }) {
             currentHistory.add(0, trimmedName)
@@ -110,6 +128,13 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
         saveNames(emptyList())
     }
 
+    fun deleteSavedName(name: String) {
+        val currentNames = _savedNames.value.toMutableList()
+        currentNames.remove(name)
+        _savedNames.value = currentNames
+        saveNames(currentNames)
+    }
+
     fun promoteName(name: String) {
         val currentNames = _savedNames.value.toMutableList()
         val index = currentNames.indexOfFirst { it.equals(name, ignoreCase = true) }
@@ -132,7 +157,7 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun addItem(name: String, price: Double) {
-        _items.update { it + ReceiptItem(name = name, price = price) }
+        _items.update { it + ReceiptItem(name = normalizeText(name), price = price) }
     }
 
     fun removeItem(itemId: String) {
@@ -142,7 +167,7 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
     fun updateItem(itemId: String, name: String, price: Double) {
         _items.update { currentItems ->
             currentItems.map { item ->
-                if (item.id == itemId) item.copy(name = name, price = price) else item
+                if (item.id == itemId) item.copy(name = normalizeText(name), price = price) else item
             }
         }
     }
@@ -221,14 +246,96 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
         return if (peopleCount > 0) _discount.value / peopleCount else 0.0
     }
 
+    fun generateFullSummary(): String {
+        val peopleList = _people.value
+        if (peopleList.isEmpty()) return "Nessun dato presente."
+
+        val sb = StringBuilder()
+        sb.append("🧾 RIEPILOGO COMPLETO SPLIT RECEIPT\n")
+        sb.append("----------------------------\n")
+        
+        peopleList.forEach { person ->
+            val total = calculateTotalForPerson(person.id)
+            sb.append("👤 ${person.name}: € ${String.format("%.2f", total)}\n")
+            val items = getItemsForPerson(person.id)
+            items.forEach { (item, share) ->
+                sb.append("  - ${item.name}: € ${String.format("%.2f", share)}")
+                if (item.assignedPersonIds.size > 1) {
+                    sb.append(" (diviso ${item.assignedPersonIds.size})")
+                }
+                sb.append("\n")
+            }
+            sb.append("\n")
+        }
+        
+        if (_discount.value > 0) {
+            sb.append("💰 Sconto totale: - € ${String.format("%.2f", _discount.value)}\n")
+        }
+        sb.append("----------------------------\n")
+        sb.append("Inviato tramite SplitReceipt App")
+        
+        return sb.toString()
+    }
+
+    fun generateSyntheticSummary(): String {
+        val peopleList = _people.value
+        if (peopleList.isEmpty()) return "Nessun dato presente."
+
+        val sb = StringBuilder()
+        sb.append("🧾 RIEPILOGO SINTETICO SPLIT RECEIPT\n")
+        sb.append("----------------------------\n")
+        
+        var grandTotal = 0.0
+        peopleList.forEach { person ->
+            val total = calculateTotalForPerson(person.id)
+            grandTotal += total
+            sb.append("👤 ${person.name}: € ${String.format("%.2f", total)}\n")
+        }
+        
+        sb.append("----------------------------\n")
+        sb.append("💰 TOTALE GENERALE: € ${String.format("%.2f", grandTotal)}\n")
+        sb.append("Inviato tramite SplitReceipt App")
+        
+        return sb.toString()
+    }
+
+    fun generatePersonSyntheticSummary(personId: String): String {
+        val person = _people.value.find { it.id == personId } ?: return ""
+        val total = calculateTotalForPerson(personId)
+        return "🧾 QUOTA PER ${person.name.uppercase()}\n💰 TOTALE: € ${String.format("%.2f", total)}\n\nInviato tramite SplitReceipt App"
+    }
+
+    fun generatePersonFullSummary(personId: String): String {
+        val person = _people.value.find { it.id == personId } ?: return ""
+        val total = calculateTotalForPerson(personId)
+        val assignedItems = getItemsForPerson(personId)
+        val discountPerPerson = getDiscountPerPerson()
+
+        val sb = StringBuilder()
+        sb.append("🧾 DETTAGLIO QUOTA: ${person.name.uppercase()}\n")
+        sb.append("----------------------------\n")
+        assignedItems.forEach { (item, share) ->
+            sb.append("• ${item.name}: € ${String.format("%.2f", share)}\n")
+        }
+        if (discountPerPerson > 0) {
+            sb.append("🎁 Sconto: - € ${String.format("%.2f", discountPerPerson)}\n")
+        }
+        sb.append("----------------------------\n")
+        sb.append("💰 TOTALE: € ${String.format("%.2f", total)}\n\n")
+        sb.append("Inviato tramite SplitReceipt App")
+        return sb.toString()
+    }
+
     fun getItemsForPerson(personId: String): List<Pair<ReceiptItem, Double>> {
         return _items.value.filter { it.assignedPersonIds.contains(personId) }
             .map { it to (it.price / it.assignedPersonIds.size) }
     }
 
-    fun setScannedItems(scannedItems: List<Pair<String, Double>>) {
-        _items.update { current ->
-            current + scannedItems.map { ReceiptItem(name = it.first, price = it.second) }
-        }
+    fun setScannedItemsWithReset(scannedItems: List<Pair<String, Double>>) {
+        _items.value = scannedItems.map { ReceiptItem(name = normalizeText(it.first), price = it.second) }
+    }
+
+    fun clearAllItems() {
+        _items.value = emptyList()
     }
 }

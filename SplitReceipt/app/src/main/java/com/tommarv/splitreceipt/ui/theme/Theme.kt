@@ -11,12 +11,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = SofaBlue,
-    onPrimary = Color.White,
-    primaryContainer = SofaBlueDark,
+    primary = Color(0xFF64B5F6), // Lighter, more vibrant blue for dark mode
+    onPrimary = Color.Black,
+    primaryContainer = Color(0xFF004691),
     onPrimaryContainer = Color.White,
-    secondary = SofaAccent,
-    onSecondary = Color.White,
+    secondary = Color(0xFF81C784), // Lighter green for dark mode
+    onSecondary = Color.Black,
     background = SofaBackgroundDark,
     surface = SofaSurfaceDark,
     onBackground = SofaTextPrimaryDark,

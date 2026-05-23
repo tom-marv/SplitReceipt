@@ -33,6 +33,7 @@ fun AssignmentScreen(
     val people by viewModel.people.collectAsState()
     val discount by viewModel.discount.collectAsState()
     var discountText by remember { mutableStateOf(if (discount > 0) discount.toString() else "") }
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
 
     Scaffold(
         topBar = {
@@ -44,9 +45,10 @@ fun AssignmentScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = Color(0xFF004691), // Always SofaBlue
                     titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 )
             )
         }
@@ -130,7 +132,11 @@ fun AssignmentScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(item.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    Text("€ ${String.format("%.2f", item.price)}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black)
+                                    Text("€ ${String.format("%.2f", item.price)}", 
+                                        style = MaterialTheme.typography.titleMedium, 
+                                        color = if (isDarkMode) Color(0xFF90CAF9) else Color(0xFF004691), 
+                                        fontWeight = FontWeight.Black
+                                    )
                                 }
                                 
                                 Spacer(Modifier.height(8.dp))
@@ -184,7 +190,7 @@ fun AssignmentScreen(
                                             " Quota: € ${String.format("%.2f", splitPrice)} ",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = if (isDarkMode) Color(0xFFBBDEFB) else Color(0xFF004691)
                                         )
                                     }
                                 }

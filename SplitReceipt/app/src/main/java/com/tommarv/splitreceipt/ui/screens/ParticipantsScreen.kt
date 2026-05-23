@@ -26,8 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.tommarv.splitreceipt.viewmodel.SplitViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -80,9 +78,10 @@ fun ParticipantsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = Color(0xFF004691), // Always SofaBlue
                     titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 )
             )
         }
@@ -156,10 +155,10 @@ fun ParticipantsScreen(
                 }
             }
             
-            // Reorderable Saved Names
+            // Reorderable Saved Names with Deletion
             if (savedNames.isNotEmpty()) {
                 Text(
-                    "SUGGERITI (Trascina per ordinare)", 
+                    "SUGGERITI (Trascina o premi X)", 
                     style = MaterialTheme.typography.labelSmall, 
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
@@ -168,7 +167,6 @@ fun ParticipantsScreen(
                 val listState = rememberLazyListState()
                 var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
                 var dragOffset by remember { mutableStateOf(0f) }
-                val scope = rememberCoroutineScope()
 
                 LazyRow(
                     state = listState,
@@ -222,15 +220,26 @@ fun ParticipantsScreen(
                                     scaleY = if (isDragging) 1.1f else 1f
                                 }
                                 .zIndex(if (isDragging) 1f else 0f)
-                                .clickable { viewModel.addPerson(name) }
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(name, style = MaterialTheme.typography.labelMedium)
+                                Row(
+                                    modifier = Modifier.clickable { viewModel.addPerson(name) },
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(name, style = MaterialTheme.typography.labelMedium)
+                                }
+                                Spacer(Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = { viewModel.deleteSavedName(name) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Rimuovi", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
+                                }
                             }
                         }
                     }
@@ -244,24 +253,22 @@ fun ParticipantsScreen(
                 modifier = Modifier.fillMaxSize().padding(top = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                people.forEach { person ->
-                    item(key = person.id) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(6.dp)
+                itemsIndexed(people, key = { _, person -> person.id }) { _, person ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                            Text(person.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            IconButton(
+                                onClick = { viewModel.removePerson(person.id) },
+                                modifier = Modifier.size(28.dp)
                             ) {
-                                Text(person.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                IconButton(
-                                    onClick = { viewModel.removePerson(person.id) },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                }
+                                Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                             }
                         }
                     }

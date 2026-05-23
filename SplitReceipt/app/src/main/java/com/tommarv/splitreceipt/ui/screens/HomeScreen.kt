@@ -97,7 +97,9 @@ fun HomeScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary
+                    containerColor = Color(0xFF004691), // Always SofaBlue
+                    titleContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 )
             )
         }
@@ -108,15 +110,15 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                // High-end Gradient Header
+                // High-end Gradient Header - ALWAYS BLUE
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.primary,
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                    Color(0xFF004691),
+                                    Color(0xFF004691).copy(alpha = 0.8f)
                                 )
                             )
                         )
@@ -145,13 +147,14 @@ fun HomeScreen(
                         .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Primary Action - Gemini Style
+                    // Primary Action - Camera with Sparkles icon
                     ModernCardButton(
                         "Avvia Scansione", 
                         "Estrai dati con AI",
-                        Icons.Default.AutoFixHigh, // Magic wand / AI icon instead of standard camera
-                        MaterialTheme.colorScheme.secondary,
-                        onNavigateToScan
+                        Icons.Default.CameraEnhance, // Camera with sparkles/AI look
+                        Color(0xFF32A852), // Always SofaAccent Green
+                        onNavigateToScan,
+                        iconColor = Color.White
                     )
                     
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -160,16 +163,16 @@ fun HomeScreen(
                     }
 
                     Spacer(Modifier.height(8.dp))
-                    Text("ELABORAZIONE", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text("ELABORAZIONE", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = if (isDarkMode) Color(0xFF64B5F6) else Color(0xFF004691))
                     
                     ModernCardButton(
                         "Dividi e Assegna", 
                         "Seleziona chi paga cosa",
-                        Icons.Default.SafetyCheck, 
+                        Icons.Default.Balance, // More fitting icon for splitting/balancing
                         MaterialTheme.colorScheme.surfaceVariant,
                         onNavigateToAssignment,
                         textColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        iconColor = MaterialTheme.colorScheme.primary
+                        iconColor = if (isDarkMode) Color(0xFF64B5F6) else Color(0xFF004691)
                     )
 
                     ModernCardButton(
@@ -179,12 +182,11 @@ fun HomeScreen(
                         MaterialTheme.colorScheme.primaryContainer,
                         onNavigateToReport,
                         textColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        iconColor = MaterialTheme.colorScheme.primary
+                        iconColor = if (isDarkMode) Color(0xFF64B5F6) else Color(0xFF004691)
                     )
                 }
             }
             
-            // App Info Footer
             IconButton(
                 onClick = { showInfoDialog = true },
                 modifier = Modifier

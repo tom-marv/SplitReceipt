@@ -50,6 +50,11 @@ import com.tommarv.splitreceipt.viewmodel.SplitViewModel
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+data class DetectedItemInfo(
+    val name: String,
+    val price: Double
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanScreen(
@@ -92,7 +97,7 @@ fun ScanScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (capturedBitmap == null) "Scansiona Scontrino" else "Revisione Scansione") },
+                title = { Text(if (capturedBitmap == null) "Scansiona Scontrino" else "Revisione Scansione", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
                 navigationIcon = {
                     IconButton(onClick = {
                         if (capturedBitmap != null) {
@@ -108,15 +113,15 @@ fun ScanScreen(
                 actions = {
                     if (capturedBitmap != null) {
                         TextButton(onClick = {
-                            viewModel.setScannedItems(detectedItems.map { it.name to it.price })
+                            viewModel.setScannedItemsWithReset(detectedItems.map { it.name to it.price })
                             onScanComplete()
                         }) {
-                            Text("CONFERMA", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                            Text("CONFERMA", fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = Color(0xFF004691), // Always SofaBlue
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -125,7 +130,6 @@ fun ScanScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (capturedBitmap == null) {
-                // Camera Preview Logic
                 if (hasCameraPermission) {
                     AndroidView(
                         factory = { ctx ->
@@ -182,7 +186,7 @@ fun ScanScreen(
                                 .padding(bottom = 32.dp)
                                 .size(80.dp),
                             shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF32A852)) // SofaAccent
                         ) {
                             Icon(Icons.Default.Camera, contentDescription = "Scatena", modifier = Modifier.size(40.dp))
                         }
@@ -193,7 +197,6 @@ fun ScanScreen(
                     }
                 }
             } else {
-                // Review Logic
                 Box(modifier = Modifier.fillMaxSize()) {
                     Image(
                         bitmap = capturedBitmap!!.asImageBitmap(),
@@ -202,9 +205,6 @@ fun ScanScreen(
                         contentScale = ContentScale.Fit
                     )
                     
-                    // List of items to review as a list instead of complex coordinate mapping
-                    // Coordinate mapping on Fit scale is extremely difficult without complex math.
-                    // Instead, we show a transparent list over the image to "delete" items.
                     Card(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -236,7 +236,9 @@ fun ScanScreen(
                                         }
                                         Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                                     }
-                                    if (index < detectedItems.size - 1) HorizontalDivider(alpha = 0.5f)
+                                    if (index < detectedItems.size - 1) {
+                                        androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                    }
                                 }
                             }
                         }
@@ -244,7 +246,6 @@ fun ScanScreen(
                 }
             }
 
-            // Processing Overlay
             AnimatedVisibility(
                 visible = isProcessing,
                 enter = fadeIn(),
@@ -264,11 +265,6 @@ fun ScanScreen(
         }
     }
 }
-
-data class DetectedItemInfo(
-    val name: String,
-    val price: Double
-)
 
 private fun processImage(bitmap: Bitmap, onComplete: (List<DetectedItemInfo>) -> Unit) {
     val image = InputImage.fromBitmap(bitmap, 0)
@@ -294,7 +290,6 @@ private fun takePhoto(
                 buffer.get(bytes)
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                 
-                // Rotate bitmap if needed based on orientation
                 val rotation = image.imageInfo.rotationDegrees
                 val finalBitmap = if (rotation != 0) {
                     val matrix = android.graphics.Matrix()
@@ -312,14 +307,5 @@ private fun takePhoto(
                 Log.e("ScanScreen", "Photo capture failed", exception)
             }
         }
-    )
-}
-
-@Composable
-fun HorizontalDivider(alpha: Float = 1f) {
-    androidx.compose.material3.HorizontalDivider(
-        modifier = Modifier.fillMaxWidth(),
-        thickness = 1.dp,
-        color = MaterialTheme.colorScheme.outline.copy(alpha = alpha)
     )
 }

@@ -1,5 +1,6 @@
 package com.tommarv.splitreceipt.ui.screens
 
+import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,12 +9,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +32,9 @@ fun ReportScreen(
     onNavigateBack: () -> Unit
 ) {
     val people by viewModel.people.collectAsState()
+    val context = LocalContext.current
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    var showShareMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -37,10 +45,40 @@ fun ReportScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
                     }
                 },
+                actions = {
+                    if (people.isNotEmpty()) {
+                        IconButton(onClick = { showShareMenu = true }) {
+                            Icon(Icons.Default.Share, contentDescription = "Condividi", tint = Color.White)
+                        }
+                        
+                        DropdownMenu(
+                            expanded = showShareMenu,
+                            onDismissRequest = { showShareMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Report Sintetico (Solo Totali)") },
+                                leadingIcon = { Icon(Icons.Default.Summarize, contentDescription = null) },
+                                onClick = {
+                                    showShareMenu = false
+                                    shareText(context, viewModel.generateSyntheticSummary(), "Condividi riepilogo sintetico")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Report Completo (Con Dettagli)") },
+                                leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
+                                onClick = {
+                                    showShareMenu = false
+                                    shareText(context, viewModel.generateFullSummary(), "Condividi riepilogo completo")
+                                }
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = Color(0xFF004691), // Always SofaBlue
                     titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 )
             )
         }
@@ -84,11 +122,11 @@ fun ReportScreen(
                                 Text(
                                     "€ ${String.format("%.2f", total)}",
                                     style = MaterialTheme.typography.headlineSmall,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = if (isDarkMode) Color(0xFF64B5F6) else Color(0xFF004691),
                                     fontWeight = FontWeight.Black
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = if (isDarkMode) Color(0xFF64B5F6).copy(alpha = 0.5f) else Color(0xFF004691).copy(alpha = 0.5f))
                             }
                         }
                     }
@@ -110,6 +148,9 @@ fun PersonDetailScreen(
     val assignedItems = viewModel.getItemsForPerson(personId)
     val total = viewModel.calculateTotalForPerson(personId)
     val discountPerPerson = viewModel.getDiscountPerPerson()
+    val context = LocalContext.current
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    var showShareMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -120,10 +161,38 @@ fun PersonDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
                     }
                 },
+                actions = {
+                    IconButton(onClick = { showShareMenu = true }) {
+                        Icon(Icons.Default.Share, contentDescription = "Condividi", tint = Color.White)
+                    }
+                    
+                    DropdownMenu(
+                        expanded = showShareMenu,
+                        onDismissRequest = { showShareMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Solo Totale") },
+                            leadingIcon = { Icon(Icons.Default.Summarize, contentDescription = null) },
+                            onClick = {
+                                showShareMenu = false
+                                shareText(context, viewModel.generatePersonSyntheticSummary(personId), "Invia totale a ${person?.name}")
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Totale con Dettagli") },
+                            leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
+                            onClick = {
+                                showShareMenu = false
+                                shareText(context, viewModel.generatePersonFullSummary(personId), "Invia dettaglio a ${person?.name}")
+                            }
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = Color(0xFF004691), // Always SofaBlue
                     titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 )
             )
         }
@@ -134,7 +203,7 @@ fun PersonDetailScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Text("DETTAGLIO COSTI", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+            Text("DETTAGLIO COSTI", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = if (isDarkMode) Color(0xFF64B5F6) else Color(0xFF004691))
             Spacer(Modifier.height(16.dp))
             
             LazyColumn(
@@ -156,7 +225,7 @@ fun PersonDetailScreen(
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
-                    HorizontalDivider(alpha = 0.3f)
+                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                 }
                 
                 if (discountPerPerson > 0) {
@@ -175,7 +244,7 @@ fun PersonDetailScreen(
             
             Card(
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
+                colors = CardDefaults.cardColors(containerColor = if (isDarkMode) Color(0xFF004691) else MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Row(
@@ -189,4 +258,13 @@ fun PersonDetailScreen(
             }
         }
     }
+}
+
+private fun shareText(context: android.content.Context, text: String, chooserTitle: String) {
+    val sendIntent: Intent = Intent().apply {
+        action = Intent.ACTION_SEND
+        putExtra(Intent.EXTRA_TEXT, text)
+        type = "text/plain"
+    }
+    context.startActivity(Intent.createChooser(sendIntent, chooserTitle))
 }
