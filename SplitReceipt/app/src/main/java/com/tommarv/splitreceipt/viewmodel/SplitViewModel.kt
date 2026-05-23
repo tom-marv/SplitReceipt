@@ -26,40 +26,66 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
     private val _isDarkMode = MutableStateFlow(loadThemePreference())
     val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
-    private fun loadThemePreference(): Boolean {
-        return sharedPrefs.getBoolean("dark_mode", false)
-    }
+    private val _savedNames = MutableStateFlow<List<String>>(loadSavedNames())
+    val savedNames: StateFlow<List<String>> = _savedNames.asStateFlow()
+
+    private fun loadThemePreference(): Boolean = sharedPrefs.getBoolean("dark_mode", false)
 
     fun toggleTheme() {
         _isDarkMode.update { !it }
         sharedPrefs.edit().putBoolean("dark_mode", _isDarkMode.value).apply()
     }
 
-    private val _savedNames = MutableStateFlow<Set<String>>(loadSavedNames())
-    val savedNames: StateFlow<Set<String>> = _savedNames.asStateFlow()
-
-    private fun loadSavedNames(): Set<String> {
-        return sharedPrefs.getStringSet("saved_names", emptySet()) ?: emptySet()
+    private fun loadSavedNames(): List<String> {
+        val set = sharedPrefs.getStringSet("saved_names", emptySet()) ?: emptySet()
+        // SharedPreferences stores as Unordered Set, we need a list to maintain our custom order
+        // We will store the order in a separate string to persist it correctly
+        val orderString = sharedPrefs.getString("names_order", "") ?: ""
+        if (orderString.isEmpty()) return set.toList()
+        
+        val orderedList = orderString.split("|").filter { it.isNotEmpty() && set.contains(it) }
+        val missing = set.filterNot { orderedList.contains(it) }
+        return orderedList + missing
     }
 
-    private fun saveNames(names: Set<String>) {
-        sharedPrefs.edit().putStringSet("saved_names", names).apply()
+    private fun saveNames(names: List<String>) {
+        sharedPrefs.edit()
+            .putStringSet("saved_names", names.toSet())
+            .putString("names_order", names.joinToString("|"))
+            .apply()
     }
 
     fun addPerson(name: String) {
-        if (name.isBlank()) return
-        val newPerson = Person(name = name)
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) return
+        
+        // Prevent adding duplicate people in the current session
+        if (_people.value.any { it.name.equals(trimmedName, ignoreCase = true) }) return
+
+        val newPerson = Person(name = trimmedName)
         _people.update { it + newPerson }
         
-        val updatedNames = _savedNames.value + name
-        _savedNames.value = updatedNames
-        saveNames(updatedNames)
+        // Save to history if new
+        val currentHistory = _savedNames.value.toMutableList()
+        if (!currentHistory.any { it.equals(trimmedName, ignoreCase = true) }) {
+            currentHistory.add(0, trimmedName)
+            _savedNames.value = currentHistory
+            saveNames(currentHistory)
+        }
     }
 
     fun addMultiplePeople(count: Int) {
-        val currentSize = _people.value.size
-        val newPeople = (1..count).map { i ->
-            Person(name = "Persona ${currentSize + i}")
+        val currentNames = _people.value.map { it.name.lowercase() }.toSet()
+        val newPeople = mutableListOf<Person>()
+        var i = 1
+        var added = 0
+        while (added < count) {
+            val name = "Persona ${i + _people.value.size}"
+            if (!currentNames.contains(name.lowercase())) {
+                newPeople.add(Person(name = name))
+                added++
+            }
+            i++
         }
         _people.update { it + newPeople }
     }
@@ -73,14 +99,36 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun clearPeople() {
+    fun clearAllData() {
+        _items.value = emptyList()
         _people.value = emptyList()
+        _discount.value = 0.0
     }
 
-    fun deleteSavedName(name: String) {
-        val updatedNames = _savedNames.value - name
-        _savedNames.value = updatedNames
-        saveNames(updatedNames)
+    fun clearHistory() {
+        _savedNames.value = emptyList()
+        saveNames(emptyList())
+    }
+
+    fun promoteName(name: String) {
+        val currentNames = _savedNames.value.toMutableList()
+        val index = currentNames.indexOfFirst { it.equals(name, ignoreCase = true) }
+        if (index != -1) {
+            val foundName = currentNames.removeAt(index)
+            currentNames.add(0, foundName)
+            _savedNames.value = currentNames
+            saveNames(currentNames)
+        }
+    }
+
+    fun moveName(fromIndex: Int, toIndex: Int) {
+        val currentNames = _savedNames.value.toMutableList()
+        if (fromIndex in currentNames.indices && toIndex in currentNames.indices) {
+            val item = currentNames.removeAt(fromIndex)
+            currentNames.add(toIndex, item)
+            _savedNames.value = currentNames
+            saveNames(currentNames)
+        }
     }
 
     fun addItem(name: String, price: Double) {
@@ -143,6 +191,14 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun clearAllAssignments() {
+        _items.update { currentItems ->
+            currentItems.map { item ->
+                item.copy(assignedPersonIds = emptyList())
+            }
+        }
+    }
+
     fun updateDiscount(amount: Double) {
         _discount.value = amount
     }
@@ -155,10 +211,8 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
                 0.0
             }
         }
-        
         val peopleCount = _people.value.size
         val discountPerPerson = if (peopleCount > 0) _discount.value / peopleCount else 0.0
-        
         return (itemsTotal - discountPerPerson).coerceAtLeast(0.0)
     }
 

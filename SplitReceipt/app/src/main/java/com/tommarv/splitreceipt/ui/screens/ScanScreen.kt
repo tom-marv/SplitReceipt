@@ -3,6 +3,8 @@ package com.tommarv.splitreceipt.ui.screens
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.Log
 import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -11,26 +13,36 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.tommarv.splitreceipt.util.ReceiptParser
@@ -47,7 +59,10 @@ fun ScanScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    
     var isProcessing by remember { mutableStateOf(false) }
+    var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var detectedItems by remember { mutableStateOf<List<DetectedItemInfo>>(emptyList()) }
     
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -77,130 +92,172 @@ fun ScanScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Scansiona Scontrino") },
+                title = { Text(if (capturedBitmap == null) "Scansiona Scontrino" else "Revisione Scansione") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        if (capturedBitmap != null) {
+                            capturedBitmap = null
+                            detectedItems = emptyList()
+                        } else {
+                            onNavigateBack()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
                     }
-                }
+                },
+                actions = {
+                    if (capturedBitmap != null) {
+                        TextButton(onClick = {
+                            viewModel.setScannedItems(detectedItems.map { it.name to it.price })
+                            onScanComplete()
+                        }) {
+                            Text("CONFERMA", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (hasCameraPermission) {
-                AndroidView(
-                    factory = { ctx ->
-                        val previewView = PreviewView(ctx).apply {
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                        }
-                        
-                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                        cameraProviderFuture.addListener({
-                            val cameraProvider = cameraProviderFuture.get()
-                            val preview = Preview.Builder().build().also {
-                                it.setSurfaceProvider(previewView.surfaceProvider)
-                            }
-
-                            try {
-                                cameraProvider.unbindAll()
-                                cameraProvider.bindToLifecycle(
-                                    lifecycleOwner,
-                                    CameraSelector.DEFAULT_BACK_CAMERA,
-                                    preview,
-                                    imageCapture
+            if (capturedBitmap == null) {
+                // Camera Preview Logic
+                if (hasCameraPermission) {
+                    AndroidView(
+                        factory = { ctx ->
+                            val previewView = PreviewView(ctx).apply {
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT
                                 )
-                            } catch (e: Exception) {
-                                Log.e("ScanScreen", "Camera binding failed", e)
                             }
-                        }, ContextCompat.getMainExecutor(ctx))
-                        
-                        previewView
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
+                            
+                            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                            cameraProviderFuture.addListener({
+                                val cameraProvider = cameraProviderFuture.get()
+                                val preview = Preview.Builder().build().also {
+                                    it.setSurfaceProvider(previewView.surfaceProvider)
+                                }
 
-                if (!isProcessing) {
-                    Button(
-                        onClick = {
-                            isProcessing = true
-                            takePhoto(
-                                imageCapture = imageCapture,
-                                executor = cameraExecutor,
-                                context = context,
-                                onImageCaptured = { visionImage ->
-                                    val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                                    recognizer.process(visionImage)
-                                        .addOnSuccessListener { visionText ->
-                                            val items = ReceiptParser.parseText(visionText)
-                                            viewModel.setScannedItems(items)
-                                            onScanComplete()
-                                        }
-                                        .addOnFailureListener { e ->
-                                            Log.e("ScanScreen", "Text recognition failed", e)
+                                try {
+                                    cameraProvider.unbindAll()
+                                    cameraProvider.bindToLifecycle(
+                                        lifecycleOwner,
+                                        CameraSelector.DEFAULT_BACK_CAMERA,
+                                        preview,
+                                        imageCapture
+                                    )
+                                } catch (e: Exception) {
+                                    Log.e("ScanScreen", "Camera binding failed", e)
+                                }
+                            }, ContextCompat.getMainExecutor(ctx))
+                            
+                            previewView
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    if (!isProcessing) {
+                        Button(
+                            onClick = {
+                                isProcessing = true
+                                takePhoto(
+                                    imageCapture = imageCapture,
+                                    executor = cameraExecutor,
+                                    onBitmapCaptured = { bitmap ->
+                                        capturedBitmap = bitmap
+                                        processImage(bitmap) { items ->
+                                            detectedItems = items
                                             isProcessing = false
                                         }
-                                }
-                            )
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 32.dp)
-                            .size(80.dp),
-                        shape = CircleShape
-                    ) {
-                        Icon(Icons.Default.Camera, contentDescription = "Scansiona", modifier = Modifier.size(40.dp))
+                                    }
+                                )
+                            },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 32.dp)
+                                .size(80.dp),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Icon(Icons.Default.Camera, contentDescription = "Scatena", modifier = Modifier.size(40.dp))
+                        }
+                    }
+                } else {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Permesso fotocamera necessario.")
                     }
                 }
             } else {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Permesso fotocamera necessario.")
+                // Review Logic
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Image(
+                        bitmap = capturedBitmap!!.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                    
+                    // List of items to review as a list instead of complex coordinate mapping
+                    // Coordinate mapping on Fit scale is extremely difficult without complex math.
+                    // Instead, we show a transparent list over the image to "delete" items.
+                    Card(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                            .padding(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Voci rilevate (tocca per eliminare)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(8.dp))
+                            androidx.compose.foundation.lazy.LazyColumn {
+                                items(detectedItems.size) { index ->
+                                    val item = detectedItems[index]
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp)
+                                            .clickable { 
+                                                detectedItems = detectedItems.filterIndexed { i, _ -> i != index }
+                                            },
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(item.name, style = MaterialTheme.typography.bodyMedium)
+                                            Text("€ ${String.format("%.2f", item.price)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                        Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                    }
+                                    if (index < detectedItems.size - 1) HorizontalDivider(alpha = 0.5f)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
             // Processing Overlay
             AnimatedVisibility(
                 visible = isProcessing,
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut() + scaleOut()
+                enter = fadeIn(),
+                exit = fadeOut()
             ) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.7f)),
+                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(100.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                strokeWidth = 8.dp
-                            )
-                            Icon(
-                                Icons.Default.AutoFixHigh,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(48.dp)
-                            )
-                        }
-                        Spacer(Modifier.height(24.dp))
-                        Text(
-                            "Analisi AI in corso...",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "Sto estraendo piatti e prezzi",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = Color.White)
+                        Spacer(Modifier.height(16.dp))
+                        Text("Analisi scontrino...", color = Color.White)
                     }
                 }
             }
@@ -208,21 +265,46 @@ fun ScanScreen(
     }
 }
 
+data class DetectedItemInfo(
+    val name: String,
+    val price: Double
+)
+
+private fun processImage(bitmap: Bitmap, onComplete: (List<DetectedItemInfo>) -> Unit) {
+    val image = InputImage.fromBitmap(bitmap, 0)
+    val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    recognizer.process(image)
+        .addOnSuccessListener { visionText ->
+            val parsed = ReceiptParser.parseText(visionText)
+            onComplete(parsed.map { DetectedItemInfo(it.first, it.second) })
+        }
+}
+
 private fun takePhoto(
     imageCapture: ImageCapture,
     executor: ExecutorService,
-    context: Context,
-    onImageCaptured: (InputImage) -> Unit
+    onBitmapCaptured: (Bitmap) -> Unit
 ) {
     imageCapture.takePicture(
         executor,
         object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
-                val mediaImage = image.image
-                if (mediaImage != null) {
-                    val visionImage = InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees)
-                    onImageCaptured(visionImage)
+                val buffer = image.planes[0].buffer
+                val bytes = ByteArray(buffer.remaining())
+                buffer.get(bytes)
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                
+                // Rotate bitmap if needed based on orientation
+                val rotation = image.imageInfo.rotationDegrees
+                val finalBitmap = if (rotation != 0) {
+                    val matrix = android.graphics.Matrix()
+                    matrix.postRotate(rotation.toFloat())
+                    Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                } else {
+                    bitmap
                 }
+                
+                onBitmapCaptured(finalBitmap)
                 image.close()
             }
 
@@ -230,5 +312,14 @@ private fun takePhoto(
                 Log.e("ScanScreen", "Photo capture failed", exception)
             }
         }
+    )
+}
+
+@Composable
+fun HorizontalDivider(alpha: Float = 1f) {
+    androidx.compose.material3.HorizontalDivider(
+        modifier = Modifier.fillMaxWidth(),
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.outline.copy(alpha = alpha)
     )
 }

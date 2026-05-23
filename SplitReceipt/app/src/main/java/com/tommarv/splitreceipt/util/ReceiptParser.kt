@@ -8,14 +8,11 @@ object ReceiptParser {
     fun parseText(visionText: Text): List<Pair<String, Double>> {
         val items = mutableListOf<Pair<String, Double>>()
         
-        // Collect all lines from all blocks
         val allLines = visionText.textBlocks.flatMap { it.lines }
         if (allLines.isEmpty()) return emptyList()
 
-        // Sort lines by their top Y coordinate to process them row by row
         val sortedLines = allLines.sortedBy { it.boundingBox?.top ?: 0 }
 
-        // Group lines that are likely on the same horizontal row
         val rows = mutableListOf<MutableList<Text.Line>>()
         for (line in sortedLines) {
             val lineTop = line.boundingBox?.top ?: 0
@@ -26,7 +23,6 @@ object ReceiptParser {
                 val rowTop = row.first().boundingBox?.top ?: 0
                 val rowBottom = row.first().boundingBox?.bottom ?: 0
                 val rowHeight = rowBottom - rowTop
-                // Check if Y coordinates overlap significantly
                 abs(lineTop - rowTop) < (rowHeight / 2)
             }
             
@@ -42,11 +38,9 @@ object ReceiptParser {
         val forbiddenWords = listOf("totale", "pagato", "resto", "euro", "p.iva", "documento", "gestionale")
 
         for (row in rows) {
-            // Sort lines in a row by their left X coordinate
             val sortedRow = row.sortedBy { it.boundingBox?.left ?: 0 }
             val fullLineText = sortedRow.joinToString(" ") { it.text }.trim()
 
-            // Skip lines that contain forbidden words
             if (forbiddenWords.any { fullLineText.contains(it, ignoreCase = true) }) continue
 
             val match = priceRegex.find(fullLineText)
@@ -56,12 +50,10 @@ object ReceiptParser {
                 
                 if (price != null) {
                     var name = fullLineText.substring(0, match.range.first).trim()
-                    // If name is empty, try to see if there's text after the price (unlikely for items)
                     if (name.isEmpty()) {
                         name = fullLineText.substring(match.range.last + 1).trim()
                     }
                     
-                    // Remove quantity prefix (e.g., "1 x ")
                     name = quantityRegex.replace(name, "")
                     
                     if (name.isNotEmpty() && name.length > 1) {

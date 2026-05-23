@@ -1,19 +1,24 @@
 package com.tommarv.splitreceipt.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tommarv.splitreceipt.viewmodel.SplitViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,53 +34,78 @@ fun EditItemsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Modifica Voci") },
+                title = { Text("MODIFICA VOCI", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(padding)
-                .padding(16.dp)
         ) {
+            // Distinct Add Section
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Aggiungi Nuova Voce", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "AGGIUNGI NUOVA PIETANZA", 
+                        style = MaterialTheme.typography.labelLarge, 
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedTextField(
                             value = newItemName,
                             onValueChange = { newItemName = it },
-                            label = { Text("Nome") },
-                            modifier = Modifier.weight(1.5f)
+                            placeholder = { Text("Nome (es. Pizza)") },
+                            modifier = Modifier.weight(1.5f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
                         )
-                        Spacer(Modifier.width(8.dp))
                         OutlinedTextField(
                             value = newItemPrice,
                             onValueChange = { newItemPrice = it },
-                            label = { Text("Prezzo") },
+                            placeholder = { Text("0.00") },
+                            leadingIcon = { Text("€", fontWeight = FontWeight.Bold) },
                             modifier = Modifier.weight(1f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
                         )
-                        Spacer(Modifier.width(8.dp))
                         IconButton(
                             onClick = {
                                 val price = newItemPrice.replace(",", ".").toDoubleOrNull() ?: 0.0
-                                viewModel.addItem(newItemName, price)
-                                newItemName = ""
-                                newItemPrice = ""
-                            }
+                                if (newItemName.isNotBlank()) {
+                                    viewModel.addItem(newItemName, price)
+                                    newItemName = ""
+                                    newItemPrice = ""
+                                }
+                            },
+                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Default.Add, contentDescription = "Aggiungi")
                         }
@@ -83,17 +113,24 @@ fun EditItemsScreen(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Text(
+                "ELENCO PIATTI (${items.size})", 
+                style = MaterialTheme.typography.labelSmall, 
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
 
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                // IMPORTANT: Use key to uniquely identify items in the list
                 items(items, key = { it.id }) { item ->
-                    ItemCard(
-                        name = item.name,
-                        price = item.price,
+                    CompactItemCard(
+                        item = item,
                         onDelete = { viewModel.removeItem(item.id) },
                         onUpdate = { name, price -> viewModel.updateItem(item.id, name, price) }
                     )
@@ -104,43 +141,74 @@ fun EditItemsScreen(
 }
 
 @Composable
-fun ItemCard(
-    name: String,
-    price: Double,
+fun CompactItemCard(
+    item: com.tommarv.splitreceipt.data.ReceiptItem,
     onDelete: () -> Unit,
     onUpdate: (String, Double) -> Unit
 ) {
-    // Re-sync local state when the source data changes
-    var editName by remember(name) { mutableStateOf(name) }
-    var editPrice by remember(price) { mutableStateOf(price.toString()) }
+    var editName by remember(item.id) { mutableStateOf(item.name) }
+    var editPrice by remember(item.id) { mutableStateOf(item.price.toString()) }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
         Row(
-            modifier = Modifier.padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OutlinedTextField(
+            // Dish Name - Highly Visible
+            TextField(
                 value = editName,
                 onValueChange = { 
                     editName = it
                     onUpdate(it, editPrice.replace(",", ".").toDoubleOrNull() ?: 0.0)
                 },
-                modifier = Modifier.weight(1.5f),
-                textStyle = MaterialTheme.typography.bodyMedium
+                modifier = Modifier.weight(1.8f),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                ),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                singleLine = true
             )
-            Spacer(Modifier.width(4.dp))
+
+            // Price field with Euro
             OutlinedTextField(
                 value = editPrice,
                 onValueChange = { 
                     editPrice = it
                     onUpdate(editName, it.replace(",", ".").toDoubleOrNull() ?: 0.0)
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1.2f),
+                prefix = { Text("€ ", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                textStyle = MaterialTheme.typography.bodyMedium
+                shape = RoundedCornerShape(6.dp)
             )
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
+
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.DeleteOutline, 
+                    contentDescription = "Elimina", 
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

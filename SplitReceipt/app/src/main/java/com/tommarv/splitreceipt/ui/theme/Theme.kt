@@ -11,33 +11,33 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryDark,
-    onPrimary = Color.Black,
-    primaryContainer = Color(0xFF3700B3),
+    primary = SofaBlue,
+    onPrimary = Color.White,
+    primaryContainer = SofaBlueDark,
     onPrimaryContainer = Color.White,
-    secondary = SecondaryDark,
-    onSecondary = Color.Black,
-    tertiary = TertiaryDark,
-    onTertiary = Color.Black,
-    background = BackgroundDark,
-    surface = SurfaceDark,
-    onBackground = TextOnDark,
-    onSurface = TextOnDark
+    secondary = SofaAccent,
+    onSecondary = Color.White,
+    background = SofaBackgroundDark,
+    surface = SofaSurfaceDark,
+    onBackground = SofaTextPrimaryDark,
+    onSurface = SofaTextPrimaryDark,
+    outline = SofaDividerDark,
+    error = SofaError
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryVibrant,
+    primary = SofaBlue,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFBB86FC),
-    onPrimaryContainer = Color.Black,
-    secondary = SecondaryVibrant,
-    onSecondary = Color.Black,
-    tertiary = TertiaryVibrant,
-    onTertiary = Color.White,
-    background = BackgroundLight,
-    surface = SurfaceLight,
-    onBackground = TextOnLight,
-    onSurface = TextOnLight
+    primaryContainer = Color(0xFFD6E3FF),
+    onPrimaryContainer = SofaBlueDark,
+    secondary = SofaAccent,
+    onSecondary = Color.White,
+    background = SofaBackgroundLight,
+    surface = SofaSurfaceLight,
+    onBackground = SofaTextPrimaryLight,
+    onSurface = SofaTextPrimaryLight,
+    outline = SofaDivider,
+    error = SofaError
 )
 
 @Composable
@@ -51,8 +51,8 @@ fun SplitReceiptTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            window.statusBarColor = colorScheme.primary.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         }
     }
 

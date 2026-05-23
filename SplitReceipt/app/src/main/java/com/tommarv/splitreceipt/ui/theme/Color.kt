@@ -2,26 +2,23 @@ package com.tommarv.splitreceipt.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Light Theme - Vibrant
-val PrimaryVibrant = Color(0xFF6200EE)
-val SecondaryVibrant = Color(0xFF03DAC6)
-val TertiaryVibrant = Color(0xFFCF6679)
-val BackgroundLight = Color(0xFFF8F9FA)
-val SurfaceLight = Color(0xFFFFFFFF)
+// SofaScore Inspired Palette
+val SofaBlue = Color(0xFF004691)
+val SofaBlueDark = Color(0xFF003066)
+val SofaAccent = Color(0xFF32A852) 
+val SofaBackgroundLight = Color(0xFFF2F4F7)
+val SofaSurfaceLight = Color(0xFFFFFFFF)
 
-// Dark Theme - Vibrant
-val PrimaryDark = Color(0xFFBB86FC)
-val SecondaryDark = Color(0xFF03DAC6)
-val TertiaryDark = Color(0xFFCF6679)
-val BackgroundDark = Color(0xFF121212)
-val SurfaceDark = Color(0xFF1E1E1E)
+val SofaBackgroundDark = Color(0xFF101820)
+val SofaSurfaceDark = Color(0xFF1B2732)
 
-// Text Colors
-val TextOnDark = Color(0xFFE1E1E1)
-val TextOnLight = Color(0xFF212121)
+// Text Colors refined for high contrast
+val SofaTextPrimaryDark = Color(0xFFF5F7F9) // Brighter off-white for dark mode
+val SofaTextSecondaryDark = Color(0xFFB0BEC5)
 
-// Specific Accent Colors
-val SuccessGreen = Color(0xFF4CAF50)
-val ErrorRed = Color(0xFFF44336)
-val InfoBlue = Color(0xFF2196F3)
-val WarningOrange = Color(0xFFFF9800)
+val SofaTextPrimaryLight = Color(0xFF1A1C1E)
+val SofaTextSecondaryLight = Color(0xFF44474E)
+
+val SofaError = Color(0xFFBA1A1A)
+val SofaDivider = Color(0xFFE0E2EC)
+val SofaDividerDark = Color(0xFF44474E)

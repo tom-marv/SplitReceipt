@@ -1,25 +1,35 @@
 package com.tommarv.splitreceipt.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.GroupAdd
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.tommarv.splitreceipt.viewmodel.SplitViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ParticipantsScreen(
     viewModel: SplitViewModel,
@@ -30,16 +40,50 @@ fun ParticipantsScreen(
     
     var newName by remember { mutableStateOf("") }
     var personCount by remember { mutableStateOf("") }
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
+
+    if (showClearHistoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryDialog = false },
+            title = { Text("Cancella Cronologia?") },
+            text = { Text("Tutti i nomi suggeriti verranno eliminati definitivamente.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearHistory()
+                    showClearHistoryDialog = false
+                }) {
+                    Text("CANCELLA", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHistoryDialog = false }) {
+                    Text("ANNULLA")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Partecipanti") },
+                title = { Text("PARTECIPANTI", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
                     }
-                }
+                },
+                actions = {
+                    if (savedNames.isNotEmpty()) {
+                        IconButton(onClick = { showClearHistoryDialog = true }) {
+                            Icon(Icons.Default.HistoryToggleOff, contentDescription = "Pulisci cronologia", tint = Color.White)
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
         }
     ) { padding ->
@@ -52,18 +96,19 @@ fun ParticipantsScreen(
             // Bulk Add Utility
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
                         value = personCount,
                         onValueChange = { personCount = it },
-                        label = { Text("Num. Persone") },
+                        label = { Text("Num. Persone", fontSize = 12.sp) },
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        shape = RoundedCornerShape(8.dp)
                     )
                     Spacer(Modifier.width(8.dp))
                     Button(
@@ -73,9 +118,10 @@ fun ParticipantsScreen(
                                 viewModel.addMultiplePeople(count)
                                 personCount = ""
                             }
-                        }
+                        },
+                        shape = RoundedCornerShape(8.dp)
                     ) {
-                        Icon(Icons.Default.GroupAdd, contentDescription = null)
+                        Icon(Icons.Default.GroupAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("Genera")
                     }
@@ -92,8 +138,9 @@ fun ParticipantsScreen(
                 OutlinedTextField(
                     value = newName,
                     onValueChange = { newName = it },
-                    label = { Text("Nome Partecipante") },
-                    modifier = Modifier.weight(1f)
+                    label = { Text("Aggiungi per nome") },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
                 )
                 Spacer(Modifier.width(8.dp))
                 IconButton(
@@ -101,63 +148,120 @@ fun ParticipantsScreen(
                         viewModel.addPerson(newName)
                         newName = ""
                     },
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Aggiungi")
                 }
             }
             
-            // Saved Names History
+            // Reorderable Saved Names
             if (savedNames.isNotEmpty()) {
                 Text(
-                    "Suggeriti:",
-                    style = MaterialTheme.typography.labelMedium,
+                    "SUGGERITI (Trascina per ordinare)", 
+                    style = MaterialTheme.typography.labelSmall, 
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                 )
+                
+                val listState = rememberLazyListState()
+                var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
+                var dragOffset by remember { mutableStateOf(0f) }
+                val scope = rememberCoroutineScope()
+
                 LazyRow(
+                    state = listState,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { offset ->
+                                    val index = listState.layoutInfo.visibleItemsInfo.find { 
+                                        offset.x.toInt() in it.offset..(it.offset + it.size)
+                                    }?.index
+                                    draggedItemIndex = index
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragOffset += dragAmount.x
+                                    
+                                    val currentDraggedIndex = draggedItemIndex ?: return@detectDragGesturesAfterLongPress
+                                    val targetIndex = listState.layoutInfo.visibleItemsInfo.find { 
+                                        (listState.layoutInfo.visibleItemsInfo[currentDraggedIndex.coerceIn(0, listState.layoutInfo.visibleItemsInfo.size - 1)].offset + dragOffset).toInt() in it.offset..(it.offset + it.size)
+                                    }?.index
+
+                                    if (targetIndex != null && targetIndex != currentDraggedIndex) {
+                                        viewModel.moveName(currentDraggedIndex, targetIndex)
+                                        draggedItemIndex = targetIndex
+                                        dragOffset = 0f
+                                    }
+                                },
+                                onDragEnd = {
+                                    draggedItemIndex = null
+                                    dragOffset = 0f
+                                },
+                                onDragCancel = {
+                                    draggedItemIndex = null
+                                    dragOffset = 0f
+                                }
+                            )
+                        }
                 ) {
-                    items(savedNames.toList()) { name ->
-                        AssistChip(
-                            onClick = { viewModel.addPerson(name) },
-                            label = { Text(name) },
-                            leadingIcon = { Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                        )
+                    itemsIndexed(savedNames, key = { _, name -> name }) { index, name ->
+                        val isDragging = index == draggedItemIndex
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isDragging) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            tonalElevation = if (isDragging) 8.dp else 0.dp,
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    translationX = if (isDragging) dragOffset else 0f
+                                    scaleX = if (isDragging) 1.1f else 1f
+                                    scaleY = if (isDragging) 1.1f else 1f
+                                }
+                                .zIndex(if (isDragging) 1f else 0f)
+                                .clickable { viewModel.addPerson(name) }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(name, style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
                     }
                 }
             }
 
             Spacer(Modifier.height(16.dp))
             
-            Text("Lista Corrente:", style = MaterialTheme.typography.titleSmall)
+            Text("LISTA CORRENTE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(top = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(people) { person ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                people.forEach { person ->
+                    item(key = person.id) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(6.dp)
                         ) {
-                            Text(person.name, style = MaterialTheme.typography.bodyMedium)
-                            IconButton(
-                                onClick = { viewModel.removePerson(person.id) },
-                                modifier = Modifier.size(32.dp)
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Icon(
-                                    Icons.Default.Delete, 
-                                    contentDescription = "Rimuovi", 
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                Text(person.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                IconButton(
+                                    onClick = { viewModel.removePerson(person.id) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                }
                             }
                         }
                     }
