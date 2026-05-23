@@ -147,11 +147,10 @@ fun HomeScreen(
                         .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Primary Action - Camera with Sparkles icon
                     ModernCardButton(
                         "Avvia Scansione", 
                         "Estrai dati con AI",
-                        Icons.Default.CameraEnhance, // Camera with sparkles/AI look
+                        Icons.Default.CameraEnhance,
                         Color(0xFF32A852), // Always SofaAccent Green
                         onNavigateToScan,
                         iconColor = Color.White
@@ -168,7 +167,7 @@ fun HomeScreen(
                     ModernCardButton(
                         "Dividi e Assegna", 
                         "Seleziona chi paga cosa",
-                        Icons.Default.Balance, // More fitting icon for splitting/balancing
+                        Icons.Default.Balance,
                         MaterialTheme.colorScheme.surfaceVariant,
                         onNavigateToAssignment,
                         textColor = MaterialTheme.colorScheme.onSurfaceVariant,
