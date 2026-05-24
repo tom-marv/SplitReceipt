@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,11 +7,7 @@ plugins {
 
 android {
     namespace = "com.tommarv.splitreceipt"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.tommarv.splitreceipt"
@@ -36,6 +34,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -54,6 +53,7 @@ dependencies {
     
     // ML Kit
     implementation(libs.mlkit.text.recognition)
+    implementation(libs.mlkit.document.scanner)
     
     // CameraX
     implementation(libs.androidx.camera.core)

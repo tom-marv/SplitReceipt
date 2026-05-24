@@ -41,12 +41,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.activity.result.IntentSenderRequest
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.tommarv.splitreceipt.util.ReceiptParser
 import com.tommarv.splitreceipt.viewmodel.SplitViewModel
+import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -63,46 +68,70 @@ fun ScanScreen(
     onScanComplete: () -> Unit
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
     
     var isProcessing by remember { mutableStateOf(false) }
+    var processingMessage by remember { mutableStateOf("Analisi scontrino...") }
     var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var detectedItems by remember { mutableStateOf<List<DetectedItemInfo>>(emptyList()) }
-    
-    var hasCameraPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
-        )
-    }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            hasCameraPermission = isGranted
+    val scannerOptions = GmsDocumentScannerOptions.Builder()
+        .setGalleryImportAllowed(true)
+        .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+        .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+        .build()
+
+    val scanner = GmsDocumentScanning.getClient(scannerOptions)
+
+    val scannerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult(),
+        onResult = { result ->
+            if (result.resultCode == android.app.Activity.RESULT_OK) {
+                val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
+                scanResult?.pages?.get(0)?.imageUri?.let { uri ->
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    capturedBitmap = bitmap
+                    isProcessing = true
+                    processImage(bitmap) { items ->
+                        detectedItems = items
+                        isProcessing = false
+                    }
+                }
+            } else if (capturedBitmap == null) {
+                // Se l'utente annulla la scansione iniziale, torna indietro
+                onNavigateBack()
+            }
         }
     )
 
-    val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
-    val imageCapture: ImageCapture = remember { ImageCapture.Builder().build() }
-    
     LaunchedEffect(Unit) {
-        if (!hasCameraPermission) {
-            launcher.launch(Manifest.permission.CAMERA)
+        if (capturedBitmap == null) {
+            scanner.getStartScanIntent(context as android.app.Activity)
+                .addOnSuccessListener { intentSender ->
+                    scannerLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                }
+                .addOnFailureListener {
+                    Log.e("ScanScreen", "Failed to start scanner", it)
+                    onNavigateBack()
+                }
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (capturedBitmap == null) "Scansiona Scontrino" else "Revisione Scansione", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
+                title = { Text(if (capturedBitmap == null) "Scansione..." else "Revisione Scansione", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
                 navigationIcon = {
                     IconButton(onClick = {
                         if (capturedBitmap != null) {
                             capturedBitmap = null
                             detectedItems = emptyList()
+                            // Riavvia la scansione
+                            scanner.getStartScanIntent(context as android.app.Activity)
+                                .addOnSuccessListener { intentSender ->
+                                    scannerLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                                }
                         } else {
                             onNavigateBack()
                         }
@@ -121,7 +150,7 @@ fun ScanScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF004691), // Always SofaBlue
+                    containerColor = Color(0xFF004691),
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -130,71 +159,8 @@ fun ScanScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (capturedBitmap == null) {
-                if (hasCameraPermission) {
-                    AndroidView(
-                        factory = { ctx ->
-                            val previewView = PreviewView(ctx).apply {
-                                layoutParams = ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.MATCH_PARENT
-                                )
-                            }
-                            
-                            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                            cameraProviderFuture.addListener({
-                                val cameraProvider = cameraProviderFuture.get()
-                                val preview = Preview.Builder().build().also {
-                                    it.setSurfaceProvider(previewView.surfaceProvider)
-                                }
-
-                                try {
-                                    cameraProvider.unbindAll()
-                                    cameraProvider.bindToLifecycle(
-                                        lifecycleOwner,
-                                        CameraSelector.DEFAULT_BACK_CAMERA,
-                                        preview,
-                                        imageCapture
-                                    )
-                                } catch (e: Exception) {
-                                    Log.e("ScanScreen", "Camera binding failed", e)
-                                }
-                            }, ContextCompat.getMainExecutor(ctx))
-                            
-                            previewView
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    if (!isProcessing) {
-                        Button(
-                            onClick = {
-                                isProcessing = true
-                                takePhoto(
-                                    imageCapture = imageCapture,
-                                    executor = cameraExecutor,
-                                    onBitmapCaptured = { bitmap ->
-                                        capturedBitmap = bitmap
-                                        processImage(bitmap) { items ->
-                                            detectedItems = items
-                                            isProcessing = false
-                                        }
-                                    }
-                                )
-                            },
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 32.dp)
-                                .size(80.dp),
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF32A852)) // SofaAccent
-                        ) {
-                            Icon(Icons.Default.Camera, contentDescription = "Scatena", modifier = Modifier.size(40.dp))
-                        }
-                    }
-                } else {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Permesso fotocamera necessario.")
-                    }
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -258,7 +224,7 @@ fun ScanScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = Color.White)
                         Spacer(Modifier.height(16.dp))
-                        Text("Analisi scontrino...", color = Color.White)
+                        Text(processingMessage, color = Color.White)
                     }
                 }
             }
@@ -274,38 +240,4 @@ private fun processImage(bitmap: Bitmap, onComplete: (List<DetectedItemInfo>) ->
             val parsed = ReceiptParser.parseText(visionText)
             onComplete(parsed.map { DetectedItemInfo(it.first, it.second) })
         }
-}
-
-private fun takePhoto(
-    imageCapture: ImageCapture,
-    executor: ExecutorService,
-    onBitmapCaptured: (Bitmap) -> Unit
-) {
-    imageCapture.takePicture(
-        executor,
-        object : ImageCapture.OnImageCapturedCallback() {
-            override fun onCaptureSuccess(image: ImageProxy) {
-                val buffer = image.planes[0].buffer
-                val bytes = ByteArray(buffer.remaining())
-                buffer.get(bytes)
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                
-                val rotation = image.imageInfo.rotationDegrees
-                val finalBitmap = if (rotation != 0) {
-                    val matrix = android.graphics.Matrix()
-                    matrix.postRotate(rotation.toFloat())
-                    Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-                } else {
-                    bitmap
-                }
-                
-                onBitmapCaptured(finalBitmap)
-                image.close()
-            }
-
-            override fun onError(exception: ImageCaptureException) {
-                Log.e("ScanScreen", "Photo capture failed", exception)
-            }
-        }
-    )
 }
