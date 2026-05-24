@@ -1,4 +1,4 @@
-# 🧾 SplitReceipt (o il nome che hai scelto)
+# 🧾 SplitReceipt
 
 Un'applicazione Android moderna progettata per semplificare la divisione del conto al ristorante. Dimentica la calcolatrice: scatta una foto allo scontrino, assegna i piatti ai tuoi amici e lascia che l'app calcoli esattamente quanto deve pagare ognuno, supportando anche la condivisione delle pietanze.
 
