@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.tommarv.splitreceipt"
-        minSdk = 36
+        minSdk = 34
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -21,11 +21,13 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug") // Temporaneo finché non creiamo la chiave
         }
     }
     compileOptions {

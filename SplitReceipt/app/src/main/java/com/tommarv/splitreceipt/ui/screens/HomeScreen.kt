@@ -59,7 +59,7 @@ fun HomeScreen(
             title = { Text("Informazioni App") },
             text = { 
                 Column {
-                    Text("SplitReceipt v1.1", fontWeight = FontWeight.Bold)
+                    Text("SplitReceipt v1.0", fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
                     Text("Un'applicazione moderna per gestire e dividere i conti in modo rapido e preciso.")
                 }
