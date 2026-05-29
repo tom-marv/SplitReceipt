@@ -11,6 +11,7 @@ base {
 
 android {
     namespace = "com.tommarv.splitreceipt"
+
     compileSdk = 36
 
     defaultConfig {
@@ -27,6 +28,9 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
+            ndk {
+                debugSymbolLevel = "full"
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
