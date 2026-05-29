@@ -10,6 +10,8 @@ Un'applicazione Android moderna progettata per semplificare la divisione del con
 * **Modifica Manuale:** L'OCR non è perfetto? Correggi rapidamente il testo o i prezzi direttamente dall'app.
 * **Report Dettagliato:** Visualizza il totale finale per ogni persona e tocca il nome per vedere il dettaglio di ogni singola quota pagata.
 
+## 🚀 Requisiti
+* Android 14 (API 34) o superiore.
 ## 🛠️ Stack Tecnologico
 
 * **Linguaggio:** Kotlin
