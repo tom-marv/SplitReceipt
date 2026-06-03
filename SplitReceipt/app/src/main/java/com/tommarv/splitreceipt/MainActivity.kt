@@ -43,7 +43,14 @@ fun SplitReceiptApp(viewModel: SplitViewModel) {
                 onNavigateToParticipants = { navController.navigate(Screen.Participants.route) },
                 onNavigateToItems = { navController.navigate(Screen.EditItems.route) },
                 onNavigateToAssignment = { navController.navigate(Screen.Assignment.route) },
-                onNavigateToReport = { navController.navigate(Screen.Report.route) }
+                onNavigateToReport = { navController.navigate(Screen.Report.route) },
+                onNavigateToHistory = { navController.navigate(Screen.History.route) }
+            )
+        }
+        composable(Screen.History.route) {
+            HistoryScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(Screen.Scan.route) {

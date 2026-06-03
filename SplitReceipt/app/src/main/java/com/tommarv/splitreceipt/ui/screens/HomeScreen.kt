@@ -26,7 +26,8 @@ fun HomeScreen(
     onNavigateToParticipants: () -> Unit,
     onNavigateToItems: () -> Unit,
     onNavigateToAssignment: () -> Unit,
-    onNavigateToReport: () -> Unit
+    onNavigateToReport: () -> Unit,
+    onNavigateToHistory: () -> Unit
 ) {
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
@@ -181,6 +182,16 @@ fun HomeScreen(
                         MaterialTheme.colorScheme.primaryContainer,
                         onNavigateToReport,
                         textColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        iconColor = if (isDarkMode) Color(0xFF64B5F6) else Color(0xFF004691)
+                    )
+
+                    ModernCardButton(
+                        "Storico Conti", 
+                        "Consulta i conti salvati",
+                        Icons.Default.History, 
+                        MaterialTheme.colorScheme.secondaryContainer,
+                        onNavigateToHistory,
+                        textColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         iconColor = if (isDarkMode) Color(0xFF64B5F6) else Color(0xFF004691)
                     )
                 }

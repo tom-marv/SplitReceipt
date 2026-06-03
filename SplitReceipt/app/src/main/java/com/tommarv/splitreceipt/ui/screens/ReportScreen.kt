@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material3.*
@@ -35,6 +36,50 @@ fun ReportScreen(
     val context = LocalContext.current
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     var showShareMenu by remember { mutableStateOf(false) }
+    var showSaveDialog by remember { mutableStateOf(false) }
+    var saveName by remember { mutableStateOf("") }
+    var savePlace by remember { mutableStateOf("") }
+
+    if (showSaveDialog) {
+        AlertDialog(
+            onDismissRequest = { showSaveDialog = false },
+            title = { Text("Salva nel registro") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = saveName,
+                        onValueChange = { saveName = it },
+                        label = { Text("Nome Evento") },
+                        placeholder = { Text("es: Cena con amici") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = savePlace,
+                        onValueChange = { savePlace = it },
+                        label = { Text("Luogo") },
+                        placeholder = { Text("es: Pizzeria da Mario") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.saveCurrentSplit(saveName, savePlace)
+                    showSaveDialog = false
+                    saveName = ""
+                    savePlace = ""
+                }) {
+                    Text("SALVA")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveDialog = false }) {
+                    Text("ANNULLA")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -47,6 +92,9 @@ fun ReportScreen(
                 },
                 actions = {
                     if (people.isNotEmpty()) {
+                        IconButton(onClick = { showSaveDialog = true }) {
+                            Icon(Icons.Default.Save, contentDescription = "Salva", tint = Color.White)
+                        }
                         IconButton(onClick = { showShareMenu = true }) {
                             Icon(Icons.Default.Share, contentDescription = "Condividi", tint = Color.White)
                         }

@@ -3,8 +3,11 @@ package com.tommarv.splitreceipt.viewmodel
 import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.tommarv.splitreceipt.data.Person
 import com.tommarv.splitreceipt.data.ReceiptItem
+import com.tommarv.splitreceipt.data.SavedSplit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.update
 class SplitViewModel(application: Application) : AndroidViewModel(application) {
 
     private val sharedPrefs = application.getSharedPreferences("split_receipt_prefs", Context.MODE_PRIVATE)
+    private val gson = Gson()
 
     private val _people = MutableStateFlow<List<Person>>(emptyList())
     val people: StateFlow<List<Person>> = _people.asStateFlow()
@@ -29,7 +33,132 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
     private val _savedNames = MutableStateFlow<List<String>>(loadSavedNames())
     val savedNames: StateFlow<List<String>> = _savedNames.asStateFlow()
 
+    private val _savedSplits = MutableStateFlow<List<SavedSplit>>(loadSavedSplits())
+    val savedSplits: StateFlow<List<SavedSplit>> = _savedSplits.asStateFlow()
+
     private fun loadThemePreference(): Boolean = sharedPrefs.getBoolean("dark_mode", false)
+
+    private fun loadSavedSplits(): List<SavedSplit> {
+        val json = sharedPrefs.getString("saved_splits", null) ?: return emptyList()
+        return try {
+            val type = object : TypeToken<List<SavedSplit>>() {}.type
+            gson.fromJson(json, type)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun saveSavedSplits(splits: List<SavedSplit>) {
+        val json = gson.toJson(splits)
+        sharedPrefs.edit().putString("saved_splits", json).apply()
+    }
+
+    fun saveCurrentSplit(name: String, place: String) {
+        val newSplit = SavedSplit(
+            name = name,
+            place = place,
+            people = _people.value,
+            items = _items.value,
+            discount = _discount.value
+        )
+        _savedSplits.update { (listOf(newSplit) + it).take(50) } // Keep last 50
+        saveSavedSplits(_savedSplits.value)
+    }
+
+    fun deleteSplit(id: String) {
+        _savedSplits.update { it.filterNot { split -> split.id == id } }
+        saveSavedSplits(_savedSplits.value)
+    }
+
+    fun deleteAllSplits() {
+        _savedSplits.value = emptyList()
+        saveSavedSplits(emptyList())
+    }
+
+    fun loadSplitIntoSession(split: SavedSplit) {
+        _people.value = split.people
+        _items.value = split.items
+        _discount.value = split.discount
+    }
+
+    fun calculateTotalForPersonInSplit(split: SavedSplit, personId: String): Double {
+        val itemsTotal = split.items.sumOf { item ->
+            if (item.assignedPersonIds.contains(personId)) {
+                item.price / item.assignedPersonIds.size
+            } else {
+                0.0
+            }
+        }
+        val peopleCount = split.people.size
+        val discountPerPerson = if (peopleCount > 0) split.discount / peopleCount else 0.0
+        return (itemsTotal - discountPerPerson).coerceAtLeast(0.0)
+    }
+
+    fun getItemsForPersonInSplit(split: SavedSplit, personId: String): List<Pair<ReceiptItem, Double>> {
+        return split.items.filter { it.assignedPersonIds.contains(personId) }
+            .map { it to (it.price / it.assignedPersonIds.size) }
+    }
+
+    fun generateFullSummaryForSplit(split: SavedSplit): String {
+        if (split.people.isEmpty()) return "Nessun dato presente."
+
+        val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
+        val dateStr = sdf.format(java.util.Date(split.date))
+
+        val sb = StringBuilder()
+        sb.append("🧾 RIEPILOGO COMPLETO: ${split.name.uppercase()}\n")
+        sb.append("📅 Data: $dateStr\n")
+        if (split.place.isNotBlank()) sb.append("📍 Luogo: ${split.place}\n")
+        sb.append("----------------------------\n")
+        
+        split.people.forEach { person ->
+            val total = calculateTotalForPersonInSplit(split, person.id)
+            sb.append("👤 ${person.name}: € ${String.format("%.2f", total)}\n")
+            val items = getItemsForPersonInSplit(split, person.id)
+            items.forEach { (item, share) ->
+                sb.append("  - ${item.name}: € ${String.format("%.2f", share)}")
+                if (item.assignedPersonIds.size > 1) {
+                    sb.append(" (diviso ${item.assignedPersonIds.size})")
+                }
+                sb.append("\n")
+            }
+            sb.append("\n")
+        }
+        
+        if (split.discount > 0) {
+            sb.append("💰 Sconto totale: - € ${String.format("%.2f", split.discount)}\n")
+        }
+        sb.append("----------------------------\n")
+        sb.append("Inviato tramite SplitReceipt App")
+        
+        return sb.toString()
+    }
+
+    fun generateSyntheticSummaryForSplit(split: SavedSplit): String {
+        if (split.people.isEmpty()) return "Nessun dato presente."
+
+        val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
+        val dateStr = sdf.format(java.util.Date(split.date))
+
+        val sb = StringBuilder()
+        sb.append("🧾 RIEPILOGO SINTETICO: ${split.name.uppercase()}\n")
+        sb.append("📅 Data: $dateStr\n")
+        if (split.place.isNotBlank()) sb.append("📍 Luogo: ${split.place}\n")
+        sb.append("----------------------------\n")
+        
+        var grandTotal = 0.0
+        split.people.forEach { person ->
+            val total = calculateTotalForPersonInSplit(split, person.id)
+            grandTotal += total
+            sb.append("👤 ${person.name}: € ${String.format("%.2f", total)}\n")
+        }
+        
+        sb.append("----------------------------\n")
+        sb.append("💰 TOTALE GENERALE: € ${String.format("%.2f", grandTotal)}\n")
+        sb.append("Inviato tramite SplitReceipt App")
+        
+        return sb.toString()
+    }
 
     fun toggleTheme() {
         _isDarkMode.update { !it }

@@ -13,8 +13,10 @@ mlkitTextRecognition = "19.0.1"
 mlkitDocumentScanner = "16.0.0-beta1"
 cameraX = "1.6.1"
 iconsExtended = "1.7.8"
+gson = "2.12.1"
 
 [libraries]
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 mlkit-document-scanner = { group = "com.google.android.gms", name = "play-services-mlkit-document-scanner", version.ref = "mlkitDocumentScanner" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

@@ -31,6 +31,30 @@ fun EditItemsScreen(
     val items by viewModel.items.collectAsState()
     var newItemName by remember { mutableStateOf("") }
     var newItemPrice by remember { mutableStateOf("") }
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
+
+    if (showClearConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmDialog = false },
+            title = { Text("Svuota tutto?") },
+            text = { Text("Sei sicuro di voler eliminare tutte le voci inserite? Questa azione non può essere annullata.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearAllItems()
+                        showClearConfirmDialog = false
+                    }
+                ) {
+                    Text("SVUOTA TUTTO", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmDialog = false }) {
+                    Text("ANNULLA")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -43,7 +67,7 @@ fun EditItemsScreen(
                 },
                 actions = {
                     if (items.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.clearAllItems() }) {
+                        IconButton(onClick = { showClearConfirmDialog = true }) {
                             Icon(Icons.Default.DeleteSweep, contentDescription = "Svuota tutto", tint = Color.White)
                         }
                     }
