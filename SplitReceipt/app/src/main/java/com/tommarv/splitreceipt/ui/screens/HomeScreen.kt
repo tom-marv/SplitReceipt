@@ -29,6 +29,21 @@ fun HomeScreen(
     onNavigateToReport: () -> Unit,
     onNavigateToHistory: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val versionName = remember {
+        try {
+            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }
+            packageInfo.versionName ?: "1.0"
+        } catch (e: Exception) {
+            "1.0"
+        }
+    }
+
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -57,16 +72,97 @@ fun HomeScreen(
     if (showInfoDialog) {
         AlertDialog(
             onDismissRequest = { showInfoDialog = false },
-            title = { Text("Informazioni App") },
+            title = { 
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Informazioni App")
+                }
+            },
             text = { 
-                Column {
-                    Text("SplitReceipt v1.0", fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Un'applicazione moderna per gestire e dividere i conti in modo rapido e preciso.")
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // App Info Box
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                "SplitReceipt", 
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                "Versione $versionName", 
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "Un'applicazione moderna per gestire e dividere i conti in modo rapido e preciso, pensata per semplificare le tue serate.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                lineHeight = 20.sp
+                            )
+                        }
+                    }
+
+                    // Copyright Box
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Copyright,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    "Copyright by",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                                Text(
+                                    "Tommaso Maria Marvulli",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    "All rights reserved",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showInfoDialog = false }) {
+                Button(
+                    onClick = { showInfoDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
                     Text("CHIUDI")
                 }
             }
@@ -77,13 +173,20 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = { 
-                    Text(
-                        "SPLIT RECEIPT", 
-                        fontWeight = FontWeight.Black,
-                        fontSize = 20.sp,
-                        letterSpacing = 2.sp,
-                        color = Color.White
-                    ) 
+                    Column {
+                        Text(
+                            "SplitReceipt", 
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 24.sp,
+                            color = Color.White,
+                            letterSpacing = 0.5.sp
+                        )
+                        Text(
+                            "Smart Bill Splitting",
+                            color = Color.White.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.toggleTheme() }) {
@@ -111,37 +214,6 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                // High-end Gradient Header - ALWAYS BLUE
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFF004691),
-                                    Color(0xFF004691).copy(alpha = 0.8f)
-                                )
-                            )
-                        )
-                        .padding(bottom = 32.dp, start = 20.dp, end = 20.dp)
-                ) {
-                    Column {
-                        Text(
-                            "SMART BILL SPLITTING",
-                            color = Color.White.copy(alpha = 0.6f),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "Gestisci il tuo conto",
-                            color = Color.White,
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            lineHeight = 40.sp
-                        )
-                    }
-                }
-
                 Column(
                     modifier = Modifier
                         .padding(20.dp)
