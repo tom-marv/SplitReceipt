@@ -21,5 +21,6 @@ data class SavedSplit(
     val date: Long = System.currentTimeMillis(),
     val people: List<Person>,
     val items: List<ReceiptItem>,
-    val discount: Double
+    val discount: Double,
+    val receiptImagePath: String? = null
 )

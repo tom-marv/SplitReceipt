@@ -22,6 +22,18 @@ import com.tommarv.splitreceipt.ui.screens.*
 import com.tommarv.splitreceipt.ui.theme.SplitReceiptTheme
 import com.tommarv.splitreceipt.viewmodel.SplitViewModel
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material3.*
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.currentBackStackEntryAsState
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -94,70 +106,114 @@ fun UpdateDialog(onDismiss: () -> Unit, onUpdate: () -> Unit) {
 @Composable
 fun SplitReceiptApp(viewModel: SplitViewModel) {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
 
-    NavHost(navController = navController, startDestination = Screen.Home.route) {
-        composable(Screen.Home.route) {
-            HomeScreen(
-                viewModel = viewModel,
-                onNavigateToScan = { navController.navigate(Screen.Scan.route) },
-                onNavigateToParticipants = { navController.navigate(Screen.Participants.route) },
-                onNavigateToItems = { navController.navigate(Screen.EditItems.route) },
-                onNavigateToAssignment = { navController.navigate(Screen.Assignment.route) },
-                onNavigateToReport = { navController.navigate(Screen.Report.route) },
-                onNavigateToHistory = { navController.navigate(Screen.History.route) }
-            )
-        }
-        composable(Screen.History.route) {
-            HistoryScreen(
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-        composable(Screen.Scan.route) {
-            ScanScreen(
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onScanComplete = { 
-                    navController.navigate(Screen.EditItems.route) {
-                        popUpTo(Screen.Scan.route) { inclusive = true }
+    val mainTabs = listOf(Screen.Home, Screen.History, Screen.Settings)
+    val showBottomBar = currentDestination?.hierarchy?.any { it.route in mainTabs.map { t -> t.route } } == true
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                NavigationBar {
+                    mainTabs.forEach { screen ->
+                        NavigationBarItem(
+                            icon = { Icon(screen.icon!!, contentDescription = null) },
+                            label = { Text(viewModel.t(screen.labelKey!!)) },
+                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        )
                     }
                 }
-            )
+            }
         }
-        composable(Screen.EditItems.route) {
-            EditItemsScreen(
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-        composable(Screen.Participants.route) {
-            ParticipantsScreen(
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-        composable(Screen.Assignment.route) {
-            AssignmentScreen(
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-        composable(Screen.Report.route) {
-            ReportScreen(
-                viewModel = viewModel,
-                onNavigateToDetail = { personId -> 
-                    navController.navigate(Screen.PersonDetail.createRoute(personId))
-                },
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-        composable(Screen.PersonDetail.route) { backStackEntry ->
-            val personId = backStackEntry.arguments?.getString("personId") ?: return@composable
-            PersonDetailScreen(
-                personId = personId,
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
+    ) { innerPadding ->
+        NavHost(
+            navController = navController, 
+            startDestination = Screen.Home.route,
+            modifier = Modifier.padding(bottom = if (showBottomBar) innerPadding.calculateBottomPadding() else 0.dp)
+        ) {
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    viewModel = viewModel,
+                    onNavigateToScan = { navController.navigate(Screen.Scan.route) },
+                    onNavigateToParticipants = { navController.navigate(Screen.Participants.route) },
+                    onNavigateToItems = { navController.navigate(Screen.EditItems.route) },
+                    onNavigateToAssignment = { navController.navigate(Screen.Assignment.route) },
+                    onNavigateToReport = { navController.navigate(Screen.Report.route) }
+                )
+            }
+            composable(Screen.History.route) {
+                HistoryScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { 
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
+            composable(Screen.Settings.route) {
+                SettingsScreen(viewModel = viewModel)
+            }
+            composable(Screen.Scan.route) {
+                ScanScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onScanComplete = { 
+                        navController.navigate(Screen.EditItems.route) {
+                            popUpTo(Screen.Scan.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+            composable(Screen.EditItems.route) {
+                EditItemsScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Participants.route) {
+                ParticipantsScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Assignment.route) {
+                AssignmentScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Report.route) {
+                ReportScreen(
+                    viewModel = viewModel,
+                    onNavigateToDetail = { personId -> 
+                        navController.navigate(Screen.PersonDetail.createRoute(personId))
+                    },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.PersonDetail.route) { backStackEntry ->
+                val personId = backStackEntry.arguments?.getString("personId") ?: return@composable
+                PersonDetailScreen(
+                    personId = personId,
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

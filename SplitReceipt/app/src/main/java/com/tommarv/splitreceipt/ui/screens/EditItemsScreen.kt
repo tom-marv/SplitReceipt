@@ -36,8 +36,8 @@ fun EditItemsScreen(
     if (showClearConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showClearConfirmDialog = false },
-            title = { Text("Svuota tutto?") },
-            text = { Text("Sei sicuro di voler eliminare tutte le voci inserite? Questa azione non può essere annullata.") },
+            title = { Text(viewModel.t("clear_all_items_title")) },
+            text = { Text(viewModel.t("clear_all_items_desc")) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -45,12 +45,12 @@ fun EditItemsScreen(
                         showClearConfirmDialog = false
                     }
                 ) {
-                    Text("SVUOTA TUTTO", color = MaterialTheme.colorScheme.error)
+                    Text(viewModel.t("clear_all"), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirmDialog = false }) {
-                    Text("ANNULLA")
+                    Text(viewModel.t("cancel"))
                 }
             }
         )
@@ -59,16 +59,16 @@ fun EditItemsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("MODIFICA VOCI", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
+                title = { Text(viewModel.t("edit_items_title").uppercase(), fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = viewModel.t("back"))
                     }
                 },
                 actions = {
                     if (items.isNotEmpty()) {
                         IconButton(onClick = { showClearConfirmDialog = true }) {
-                            Icon(Icons.Default.DeleteSweep, contentDescription = "Svuota tutto", tint = Color.White)
+                            Icon(Icons.Default.DeleteSweep, contentDescription = viewModel.t("clear_all"), tint = Color.White)
                         }
                     }
                 },
@@ -98,7 +98,7 @@ fun EditItemsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "AGGIUNGI NUOVA PIETANZA", 
+                        viewModel.t("add_new_item"), 
                         style = MaterialTheme.typography.labelLarge, 
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -112,7 +112,7 @@ fun EditItemsScreen(
                         OutlinedTextField(
                             value = newItemName,
                             onValueChange = { newItemName = it },
-                            placeholder = { Text("Nome (es. Pizza)") },
+                            placeholder = { Text(viewModel.t("item_name_hint")) },
                             modifier = Modifier.weight(1.5f),
                             singleLine = true,
                             shape = RoundedCornerShape(8.dp),
@@ -140,14 +140,14 @@ fun EditItemsScreen(
                             },
                             colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Aggiungi")
+                            Icon(Icons.Default.Add, contentDescription = viewModel.t("add"))
                         }
                     }
                 }
             }
 
             Text(
-                "ELENCO PIATTI (${items.size})", 
+                "${viewModel.t("items_list")} (${items.size})", 
                 style = MaterialTheme.typography.labelSmall, 
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -164,6 +164,7 @@ fun EditItemsScreen(
                 items(items, key = { it.id }) { item ->
                     CompactItemCard(
                         item = item,
+                        viewModel = viewModel,
                         onDelete = { viewModel.removeItem(item.id) },
                         onUpdate = { name, price -> viewModel.updateItem(item.id, name, price) }
                     )
@@ -176,6 +177,7 @@ fun EditItemsScreen(
 @Composable
 fun CompactItemCard(
     item: com.tommarv.splitreceipt.data.ReceiptItem,
+    viewModel: SplitViewModel,
     onDelete: () -> Unit,
     onUpdate: (String, Double) -> Unit
 ) {
@@ -237,7 +239,7 @@ fun CompactItemCard(
             ) {
                 Icon(
                     Icons.Default.DeleteOutline, 
-                    contentDescription = "Elimina", 
+                    contentDescription = viewModel.t("delete"), 
                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
                     modifier = Modifier.size(20.dp)
                 )

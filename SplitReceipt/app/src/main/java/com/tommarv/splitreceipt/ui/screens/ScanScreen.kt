@@ -83,12 +83,15 @@ fun ScanScreen(
 
     val scanner = GmsDocumentScanning.getClient(scannerOptions)
 
+    var currentImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
     val scannerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult(),
         onResult = { result ->
             if (result.resultCode == android.app.Activity.RESULT_OK) {
                 val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
                 scanResult?.pages?.get(0)?.imageUri?.let { uri ->
+                    currentImageUri = uri
                     val inputStream = context.contentResolver.openInputStream(uri)
                     val bitmap = BitmapFactory.decodeStream(inputStream)
                     capturedBitmap = bitmap
@@ -121,12 +124,13 @@ fun ScanScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (capturedBitmap == null) "Scansione..." else "Revisione Scansione", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
+                title = { Text(if (capturedBitmap == null) viewModel.t("scanning") else viewModel.t("review_scan"), fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
                 navigationIcon = {
                     IconButton(onClick = {
                         if (capturedBitmap != null) {
                             capturedBitmap = null
                             detectedItems = emptyList()
+                            currentImageUri = null
                             // Riavvia la scansione
                             scanner.getStartScanIntent(context as android.app.Activity)
                                 .addOnSuccessListener { intentSender ->
@@ -136,16 +140,17 @@ fun ScanScreen(
                             onNavigateBack()
                         }
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = viewModel.t("back"))
                     }
                 },
                 actions = {
                     if (capturedBitmap != null) {
                         TextButton(onClick = {
+                            viewModel.setLastScannedImage(currentImageUri)
                             viewModel.setScannedItemsWithReset(detectedItems.map { it.name to it.price })
                             onScanComplete()
                         }) {
-                            Text("CONFERMA", fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(viewModel.t("confirm"), fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 },
@@ -181,7 +186,7 @@ fun ScanScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Voci rilevate (tocca per eliminare)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(viewModel.t("detected_items_desc"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(8.dp))
                             androidx.compose.foundation.lazy.LazyColumn {
                                 items(detectedItems.size) { index ->
@@ -224,7 +229,7 @@ fun ScanScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = Color.White)
                         Spacer(Modifier.height(16.dp))
-                        Text(processingMessage, color = Color.White)
+                        Text(viewModel.t("analyzing_receipt"), color = Color.White)
                     }
                 }
             }

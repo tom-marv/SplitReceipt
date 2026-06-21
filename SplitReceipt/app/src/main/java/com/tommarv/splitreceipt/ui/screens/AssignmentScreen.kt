@@ -18,9 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tommarv.splitreceipt.ui.EmptyState
 import com.tommarv.splitreceipt.viewmodel.SplitViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,10 +38,10 @@ fun AssignmentScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ASSEGNA VOCI", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
+                title = { Text(viewModel.t("assignment_title").uppercase(), fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = viewModel.t("back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -56,8 +56,8 @@ fun AssignmentScreen(
         if (people.isEmpty()) {
             EmptyState(
                 icon = Icons.Default.PersonAdd,
-                message = "Nessun partecipante trovato",
-                subMessage = "Aggiungi i tuoi amici nella sezione 'Persone' per iniziare a dividere il conto.",
+                message = viewModel.t("no_participants"),
+                subMessage = viewModel.t("add_friends_desc"),
                 modifier = Modifier.padding(padding)
             )
         } else {
@@ -81,7 +81,7 @@ fun AssignmentScreen(
                             ) {
                                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Dividi tutto", style = MaterialTheme.typography.labelMedium)
+                                Text(viewModel.t("split_all"), style = MaterialTheme.typography.labelMedium)
                             }
                             
                             OutlinedButton(
@@ -92,7 +92,7 @@ fun AssignmentScreen(
                             ) {
                                 Icon(Icons.Default.HighlightOff, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Rimuovi tutto", style = MaterialTheme.typography.labelMedium)
+                                Text(viewModel.t("remove_all"), style = MaterialTheme.typography.labelMedium)
                             }
                         }
                         
@@ -102,7 +102,7 @@ fun AssignmentScreen(
                                 discountText = it
                                 viewModel.updateDiscount(it.replace(",", ".").toDoubleOrNull() ?: 0.0)
                             },
-                            label = { Text("Sconto", fontSize = 12.sp) },
+                            label = { Text(viewModel.t("discount"), fontSize = 12.sp) },
                             prefix = { Text("€ ") },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -129,9 +129,9 @@ fun AssignmentScreen(
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalAlignment = Alignment.Top
                                 ) {
-                                    Text(item.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text(item.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                     Text("€ ${String.format("%.2f", item.price)}", 
                                         style = MaterialTheme.typography.titleMedium, 
                                         color = if (isDarkMode) Color(0xFF90CAF9) else Color(0xFF004691), 
@@ -151,7 +151,7 @@ fun AssignmentScreen(
                                         FilterChip(
                                             selected = isAllSelected,
                                             onClick = { viewModel.assignToAll(item.id) },
-                                            label = { Text("TUTTI") },
+                                            label = { Text(viewModel.t("all")) },
                                             leadingIcon = {
                                                 Icon(
                                                     if (isAllSelected) Icons.Default.CheckCircle else Icons.Default.Groups,
@@ -187,7 +187,7 @@ fun AssignmentScreen(
                                         modifier = Modifier.padding(top = 4.dp)
                                     ) {
                                         Text(
-                                            " Quota: € ${String.format("%.2f", splitPrice)} ",
+                                            " ${viewModel.t("share_quota")}: € ${String.format("%.2f", splitPrice)} ",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = if (isDarkMode) Color(0xFFBBDEFB) else Color(0xFF004691)
@@ -199,28 +199,6 @@ fun AssignmentScreen(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun EmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, message: String, subMessage: String, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize().padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Surface(
-                modifier = Modifier.size(80.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Icon(icon, contentDescription = null, modifier = Modifier.padding(20.dp).size(40.dp), tint = MaterialTheme.colorScheme.primary)
-            }
-            Spacer(Modifier.height(24.dp))
-            Text(message, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(8.dp))
-            Text(subMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), textAlign = TextAlign.Center)
         }
     }
 }

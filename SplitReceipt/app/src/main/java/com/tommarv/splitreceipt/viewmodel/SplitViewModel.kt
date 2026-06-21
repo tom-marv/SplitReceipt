@@ -13,6 +13,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import java.io.File
+import java.io.FileOutputStream
+import java.util.Locale
+
+enum class AppLanguage(val code: String, val label: String) {
+    ITALIAN("it", "🇮🇹 Italiano"),
+    ENGLISH("en", "🇬🇧 English")
+}
+
 class SplitViewModel(application: Application) : AndroidViewModel(application) {
 
     private val sharedPrefs = application.getSharedPreferences("split_receipt_prefs", Context.MODE_PRIVATE)
@@ -30,6 +42,15 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
     private val _isDarkMode = MutableStateFlow(loadThemePreference())
     val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
+    private val _language = MutableStateFlow(loadLanguagePreference())
+    val language: StateFlow<AppLanguage> = _language.asStateFlow()
+
+    private val _saveImagesEnabled = MutableStateFlow(loadSaveImagesPreference())
+    val saveImagesEnabled: StateFlow<Boolean> = _saveImagesEnabled.asStateFlow()
+
+    private val _lastScannedImageUri = MutableStateFlow<Uri?>(null)
+    val lastScannedImageUri: StateFlow<Uri?> = _lastScannedImageUri.asStateFlow()
+
     private val _savedNames = MutableStateFlow<List<String>>(loadSavedNames())
     val savedNames: StateFlow<List<String>> = _savedNames.asStateFlow()
 
@@ -37,6 +58,13 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
     val savedSplits: StateFlow<List<SavedSplit>> = _savedSplits.asStateFlow()
 
     private fun loadThemePreference(): Boolean = sharedPrefs.getBoolean("dark_mode", false)
+    
+    private fun loadLanguagePreference(): AppLanguage {
+        val code = sharedPrefs.getString("language", AppLanguage.ITALIAN.code) ?: AppLanguage.ITALIAN.code
+        return AppLanguage.values().find { it.code == code } ?: AppLanguage.ITALIAN
+    }
+    
+    private fun loadSaveImagesPreference(): Boolean = sharedPrefs.getBoolean("save_images", false)
 
     private fun loadSavedSplits(): List<SavedSplit> {
         val json = sharedPrefs.getString("saved_splits", null) ?: return emptyList()
@@ -54,25 +82,195 @@ class SplitViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun saveCurrentSplit(name: String, place: String) {
+        var imagePath: String? = null
+        if (_saveImagesEnabled.value) {
+            _lastScannedImageUri.value?.let { uri ->
+                imagePath = saveImageToInternalStorage(uri)
+            }
+        }
+
         val newSplit = SavedSplit(
             name = name,
             place = place,
             people = _people.value,
             items = _items.value,
-            discount = _discount.value
+            discount = _discount.value,
+            receiptImagePath = imagePath
         )
         _savedSplits.update { (listOf(newSplit) + it).take(50) } // Keep last 50
         saveSavedSplits(_savedSplits.value)
     }
 
+    private fun saveImageToInternalStorage(uri: Uri): String? {
+        return try {
+            val context = getApplication<Application>().applicationContext
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            
+            val fileName = "receipt_${System.currentTimeMillis()}.jpg"
+            val file = File(context.filesDir, fileName)
+            val out = FileOutputStream(file)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+            out.flush()
+            out.close()
+            file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     fun deleteSplit(id: String) {
+        val splitToDelete = _savedSplits.value.find { it.id == id }
+        splitToDelete?.receiptImagePath?.let { path ->
+            File(path).delete()
+        }
+        
         _savedSplits.update { it.filterNot { split -> split.id == id } }
         saveSavedSplits(_savedSplits.value)
     }
 
     fun deleteAllSplits() {
+        _savedSplits.value.forEach { split ->
+            split.receiptImagePath?.let { path ->
+                File(path).delete()
+            }
+        }
         _savedSplits.value = emptyList()
         saveSavedSplits(emptyList())
+    }
+
+    fun setLastScannedImage(uri: Uri?) {
+        _lastScannedImageUri.value = uri
+    }
+
+    fun setLanguage(language: AppLanguage) {
+        _language.value = language
+        sharedPrefs.edit().putString("language", language.code).apply()
+    }
+
+    fun setSaveImagesEnabled(enabled: Boolean) {
+        _saveImagesEnabled.value = enabled
+        sharedPrefs.edit().putBoolean("save_images", enabled).apply()
+    }
+
+    fun t(key: String): String {
+        val isEn = _language.value == AppLanguage.ENGLISH
+        return when (key) {
+            "home" -> if (isEn) "Home" else "Home"
+            "history" -> if (isEn) "History" else "Storico"
+            "settings" -> if (isEn) "Settings" else "Impostazioni"
+            "info" -> if (isEn) "App Info" else "Info App"
+            "start_scan" -> if (isEn) "Start Scan" else "Avvia Scansione"
+            "extract_ai" -> if (isEn) "Extract data with AI" else "Estrai dati con AI"
+            "who_participated" -> if (isEn) "Who participated?" else "Chi ha partecipato?"
+            "people" -> if (isEn) "People" else "Persone"
+            "check_prices" -> if (isEn) "Check prices" else "Controlla i prezzi"
+            "items" -> if (isEn) "Items" else "Voci"
+            "processing" -> if (isEn) "PROCESSING" else "ELABORAZIONE"
+            "split_assign" -> if (isEn) "Split and Assign" else "Dividi e Assegna"
+            "select_who_pays" -> if (isEn) "Select who pays what" else "Seleziona chi paga cosa"
+            "view_result" -> if (isEn) "View Result" else "Visualizza Risultato"
+            "final_bills" -> if (isEn) "Final bills per person" else "Conti finali per persona"
+            "history_title" -> if (isEn) "History" else "Storico Conti"
+            "delete_all" -> if (isEn) "Delete All" else "Elimina Tutto"
+            "no_saved_splits" -> if (isEn) "No saved splits" else "Nessun conto salvato"
+            "app_description" -> if (isEn) "A modern app to manage and split bills quickly and precisely, designed to simplify your evenings." else "Un'applicazione moderna per gestire e dividere i conti in modo rapido e preciso, pensata per semplificare le tue serate."
+            "developed_by" -> if (isEn) "Developed by" else "Sviluppato da"
+            "app_info_title" -> if (isEn) "Information" else "Informazioni"
+            "version" -> if (isEn) "Version" else "Versione"
+            "copyright_by" -> if (isEn) "Copyright by" else "Copyright di"
+            "all_rights_reserved" -> if (isEn) "All rights reserved" else "Tutti i diritti riservati"
+            "language" -> if (isEn) "Language" else "Lingua"
+            "save_scans" -> if (isEn) "Save scans" else "Salva scansioni"
+            "save_scans_desc" -> if (isEn) "Save receipt images in history" else "Salva le foto degli scontrini nello storico"
+            "total" -> if (isEn) "Total" else "Totale"
+            "discount" -> if (isEn) "Discount" else "Sconto"
+            "details" -> if (isEn) "Details" else "Dettagli"
+            "restore" -> if (isEn) "Restore" else "Ripristina"
+            "delete_confirm_title" -> if (isEn) "Delete this split?" else "Eliminare questo conto?"
+            "delete_confirm_desc" -> if (isEn) "This action is final and cannot be undone." else "L'azione è definitiva e non può essere annullata."
+            "reset_all" -> if (isEn) "Reset All?" else "Resetta Tutto?"
+            "reset_desc" -> if (isEn) "All current items, participants, and assignments will be deleted. Name history will remain." else "Verranno eliminate tutte le voci, i partecipanti e le assegnazioni correnti. Lo storico nomi rimarrà salvato."
+            "delete" -> if (isEn) "DELETE" else "ELIMINA"
+            "cancel" -> if (isEn) "CANCEL" else "ANNULLA"
+            "reset" -> if (isEn) "RESET" else "RESETTA"
+            "close" -> if (isEn) "CLOSE" else "CHIUDI"
+            "scanning" -> if (isEn) "Scanning..." else "Scansione..."
+            "review_scan" -> if (isEn) "Review Scan" else "Revisione Scansione"
+            "confirm" -> if (isEn) "CONFIRM" else "CONFERMA"
+            "analyzing_receipt" -> if (isEn) "Analyzing receipt..." else "Analisi scontrino..."
+            "detected_items_desc" -> if (isEn) "Detected items (tap to delete)" else "Voci rilevate (tocca per eliminare)"
+            "edit_items_title" -> if (isEn) "Edit Items" else "Modifica Voci"
+            "add_item" -> if (isEn) "Add Item" else "Aggiungi Voce"
+            "item_name" -> if (isEn) "Item Name" else "Nome Voce"
+            "price" -> if (isEn) "Price" else "Prezzo"
+            "participants_title" -> if (isEn) "Participants" else "Partecipanti"
+            "add_person" -> if (isEn) "Add Person" else "Aggiungi Persona"
+            "person_name" -> if (isEn) "Person Name" else "Nome Persona"
+            "assignment_title" -> if (isEn) "Assign Items" else "Assegna Voci"
+            "report_title" -> if (isEn) "Final Report" else "Report Finale"
+            "share" -> if (isEn) "Share" else "Condividi"
+            "synthetic_report" -> if (isEn) "Synthetic Report" else "Report Sintetico"
+            "full_report" -> if (isEn) "Full Report" else "Report Completo"
+            "no_data" -> if (isEn) "No data available" else "Nessun dato presente"
+            "back" -> if (isEn) "Back" else "Indietro"
+            "clear_history_title" -> if (isEn) "Clear History?" else "Cancella Cronologia?"
+            "clear_history_desc" -> if (isEn) "All suggested names will be deleted permanently." else "Tutti i nomi suggeriti verranno eliminati definitivamente."
+            "num_people" -> if (isEn) "Num. People" else "Num. Persone"
+            "generate" -> if (isEn) "Generate" else "Genera"
+            "add_by_name" -> if (isEn) "Add by name" else "Aggiungi per nome"
+            "suggested_drag" -> if (isEn) "SUGGESTED (Drag or tap X)" else "SUGGERITI (Trascina o premi X)"
+            "current_list" -> if (isEn) "CURRENT LIST" else "LISTA CORRENTE"
+            "no_name" -> if (isEn) "Untitled" else "Senza Nome"
+            "place_not_specified" -> if (isEn) "Place not specified" else "Luogo non specificato"
+            "synthetic_chooser" -> if (isEn) "Share synthetic report" else "Condividi sintetico"
+            "full_chooser" -> if (isEn) "Share full report" else "Condividi completo"
+            "prs" -> if (isEn) "prs" else "prs"
+            "items_count" -> if (isEn) "items" else "voci"
+            "cleaning_history" -> if (isEn) "Cleaning history" else "Pulisci cronologia"
+            "add" -> if (isEn) "ADD" else "AGGIUNGI"
+            "clear_all_items_title" -> if (isEn) "Clear all items?" else "Svuota tutto?"
+            "clear_all_items_desc" -> if (isEn) "Are you sure you want to delete all items? This action cannot be undone." else "Sei sicuro di voler eliminare tutte le voci inserite? Questa azione non può essere annullata."
+            "add_new_item" -> if (isEn) "ADD NEW ITEM" else "AGGIUNGI NUOVA PIETANZA"
+            "item_name_hint" -> if (isEn) "Name (e.g. Pizza)" else "Nome (es. Pizza)"
+            "items_list" -> if (isEn) "ITEMS LIST" else "ELENCO PIATTI"
+            "clear_all" -> if (isEn) "CLEAR ALL" else "SVUOTA TUTTO"
+            "no_participants" -> if (isEn) "No participants found" else "Nessun partecipante trovato"
+            "add_friends_desc" -> if (isEn) "Add your friends in the 'People' section to start splitting the bill." else "Aggiungi i tuoi amici nella sezione 'Persone' per iniziare a dividere il conto."
+            "split_all" -> if (isEn) "Split all" else "Dividi tutto"
+            "remove_all" -> if (isEn) "Remove all" else "Rimuovi tutto"
+            "all" -> if (isEn) "ALL" else "TUTTI"
+            "share_synthetic" -> if (isEn) "Synthetic report" else "Report Sintetico"
+            "share_full" -> if (isEn) "Full report" else "Report Completo"
+            "person_total" -> if (isEn) "Total for person" else "Quota per persona"
+            "share_quota" -> if (isEn) "Share" else "Quota"
+            "save_to_log" -> if (isEn) "Save to log" else "Salva nel registro"
+            "event_name" -> if (isEn) "Event Name" else "Nome Evento"
+            "event_name_hint" -> if (isEn) "e.g. Dinner with friends" else "es: Cena con amici"
+            "place_hint" -> if (isEn) "e.g. Mario's Pizzeria" else "es: Pizzeria da Mario"
+            "save" -> if (isEn) "SAVE" else "SALVA"
+            "final_summary_title" -> if (isEn) "FINAL SUMMARY" else "RIEPILOGO FINALE"
+            "no_data_to_show" -> if (isEn) "No data to show" else "Nessun dato da mostrare"
+            "assign_desc" -> if (isEn) "Assign receipt items to participants to see totals here." else "Assegna le voci dello scontrino ai partecipanti per vedere i totali qui."
+            "total_due" -> if (isEn) "Total due" else "Totale dovuto"
+            "detail" -> if (isEn) "DETAIL" else "DETTAGLIO"
+            "only_total" -> if (isEn) "Total only" else "Solo Totale"
+            "total_with_details" -> if (isEn) "Total with details" else "Totale con Dettagli"
+            "send_total_to" -> if (isEn) "Send total to" else "Invia totale a"
+            "send_detail_to" -> if (isEn) "Send detail to" else "Invia dettaglio a"
+            "cost_detail" -> if (isEn) "COST DETAIL" else "DETTAGLIO COSTI"
+            "divided_between" -> if (isEn) "Divided among" else "Diviso tra"
+            "people_count" -> if (isEn) "people" else "persone"
+            "full_share" -> if (isEn) "Full share" else "Quota intera"
+            "discount_applied" -> if (isEn) "Discount applied" else "Sconto applicato"
+            "divided_equally" -> if (isEn) "Divided equally" else "Suddiviso equamente"
+            "theme" -> if (isEn) "Theme" else "Tema"
+            "light" -> if (isEn) "Light" else "Chiaro"
+            "dark" -> if (isEn) "Dark" else "Scuro"
+            "photo" -> if (isEn) "Photo" else "Foto"
+            else -> key
+        }
     }
 
     fun loadSplitIntoSession(split: SavedSplit) {

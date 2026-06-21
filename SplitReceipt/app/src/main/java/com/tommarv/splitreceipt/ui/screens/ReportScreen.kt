@@ -21,8 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tommarv.splitreceipt.ui.EmptyState
 import com.tommarv.splitreceipt.viewmodel.SplitViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,14 +45,14 @@ fun ReportScreen(
     if (showSaveDialog) {
         AlertDialog(
             onDismissRequest = { showSaveDialog = false },
-            title = { Text("Salva nel registro") },
+            title = { Text(viewModel.t("save_to_log")) },
             text = {
                 Column {
                     OutlinedTextField(
                         value = saveName,
                         onValueChange = { saveName = it },
-                        label = { Text("Nome Evento") },
-                        placeholder = { Text("es: Cena con amici") },
+                        label = { Text(viewModel.t("event_name")) },
+                        placeholder = { Text(viewModel.t("event_name_hint")) },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(Modifier.height(8.dp))
@@ -58,7 +60,7 @@ fun ReportScreen(
                         value = savePlace,
                         onValueChange = { savePlace = it },
                         label = { Text("Luogo") },
-                        placeholder = { Text("es: Pizzeria da Mario") },
+                        placeholder = { Text(viewModel.t("place_hint")) },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -70,12 +72,12 @@ fun ReportScreen(
                     saveName = ""
                     savePlace = ""
                 }) {
-                    Text("SALVA")
+                    Text(viewModel.t("save"))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSaveDialog = false }) {
-                    Text("ANNULLA")
+                    Text(viewModel.t("cancel"))
                 }
             }
         )
@@ -84,19 +86,19 @@ fun ReportScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("RIEPILOGO FINALE", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
+                title = { Text(viewModel.t("final_summary_title").uppercase(), fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = viewModel.t("back"))
                     }
                 },
                 actions = {
                     if (people.isNotEmpty()) {
                         IconButton(onClick = { showSaveDialog = true }) {
-                            Icon(Icons.Default.Save, contentDescription = "Salva", tint = Color.White)
+                            Icon(Icons.Default.Save, contentDescription = viewModel.t("save"), tint = Color.White)
                         }
                         IconButton(onClick = { showShareMenu = true }) {
-                            Icon(Icons.Default.Share, contentDescription = "Condividi", tint = Color.White)
+                            Icon(Icons.Default.Share, contentDescription = viewModel.t("share"), tint = Color.White)
                         }
                         
                         DropdownMenu(
@@ -104,19 +106,19 @@ fun ReportScreen(
                             onDismissRequest = { showShareMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Report Sintetico (Solo Totali)") },
+                                text = { Text(viewModel.t("share_synthetic")) },
                                 leadingIcon = { Icon(Icons.Default.Summarize, contentDescription = null) },
                                 onClick = {
                                     showShareMenu = false
-                                    shareText(context, viewModel.generateSyntheticSummary(), "Condividi riepilogo sintetico")
+                                    shareText(context, viewModel.generateSyntheticSummary(), viewModel.t("synthetic_chooser"))
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Report Completo (Con Dettagli)") },
+                                text = { Text(viewModel.t("share_full")) },
                                 leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
                                 onClick = {
                                     showShareMenu = false
-                                    shareText(context, viewModel.generateFullSummary(), "Condividi riepilogo completo")
+                                    shareText(context, viewModel.generateFullSummary(), viewModel.t("full_chooser"))
                                 }
                             )
                         }
@@ -134,8 +136,8 @@ fun ReportScreen(
         if (people.isEmpty()) {
             EmptyState(
                 icon = Icons.Default.QueryStats,
-                message = "Nessun dato da mostrare",
-                subMessage = "Assegna le voci dello scontrino ai partecipanti per vedere i totali qui.",
+                message = viewModel.t("no_data_to_show"),
+                subMessage = viewModel.t("assign_desc"),
                 modifier = Modifier.padding(padding)
             )
         } else {
@@ -164,7 +166,7 @@ fun ReportScreen(
                         ) {
                             Column {
                                 Text(person.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                Text("Totale dovuto", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                Text(viewModel.t("total_due"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
@@ -203,15 +205,15 @@ fun PersonDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(person?.name?.uppercase() ?: "DETTAGLIO", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
+                title = { Text(person?.name?.uppercase() ?: viewModel.t("detail"), fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = viewModel.t("back"))
                     }
                 },
                 actions = {
                     IconButton(onClick = { showShareMenu = true }) {
-                        Icon(Icons.Default.Share, contentDescription = "Condividi", tint = Color.White)
+                        Icon(Icons.Default.Share, contentDescription = viewModel.t("share"), tint = Color.White)
                     }
                     
                     DropdownMenu(
@@ -219,19 +221,19 @@ fun PersonDetailScreen(
                         onDismissRequest = { showShareMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Solo Totale") },
+                            text = { Text(viewModel.t("only_total")) },
                             leadingIcon = { Icon(Icons.Default.Summarize, contentDescription = null) },
                             onClick = {
                                 showShareMenu = false
-                                shareText(context, viewModel.generatePersonSyntheticSummary(personId), "Invia totale a ${person?.name}")
+                                shareText(context, viewModel.generatePersonSyntheticSummary(personId), "${viewModel.t("send_total_to")} ${person?.name}")
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Totale con Dettagli") },
+                            text = { Text(viewModel.t("total_with_details")) },
                             leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
                             onClick = {
                                 showShareMenu = false
-                                shareText(context, viewModel.generatePersonFullSummary(personId), "Invia dettaglio a ${person?.name}")
+                                shareText(context, viewModel.generatePersonFullSummary(personId), "${viewModel.t("send_detail_to")} ${person?.name}")
                             }
                         )
                     }
@@ -251,7 +253,7 @@ fun PersonDetailScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Text("DETTAGLIO COSTI", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = if (isDarkMode) Color(0xFF64B5F6) else Color(0xFF004691))
+            Text(viewModel.t("cost_detail"), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = if (isDarkMode) Color(0xFF64B5F6) else Color(0xFF004691))
             Spacer(Modifier.height(16.dp))
             
             LazyColumn(
@@ -263,9 +265,9 @@ fun PersonDetailScreen(
                         headlineContent = { Text(item.name, fontWeight = FontWeight.Bold) },
                         supportingContent = { 
                             if (item.assignedPersonIds.size > 1) {
-                                Text("Diviso tra ${item.assignedPersonIds.size} persone", style = MaterialTheme.typography.labelSmall)
+                                Text("${viewModel.t("divided_between")} ${item.assignedPersonIds.size} ${viewModel.t("people_count")}", style = MaterialTheme.typography.labelSmall)
                             } else {
-                                Text("Quota intera", style = MaterialTheme.typography.labelSmall)
+                                Text(viewModel.t("full_share"), style = MaterialTheme.typography.labelSmall)
                             }
                         },
                         trailingContent = {
@@ -279,8 +281,8 @@ fun PersonDetailScreen(
                 if (discountPerPerson > 0) {
                     item {
                         ListItem(
-                            headlineContent = { Text("Sconto applicato", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
-                            supportingContent = { Text("Suddiviso equamente", style = MaterialTheme.typography.labelSmall) },
+                            headlineContent = { Text(viewModel.t("discount_applied"), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
+                            supportingContent = { Text(viewModel.t("divided_equally"), style = MaterialTheme.typography.labelSmall) },
                             trailingContent = {
                                 Text("- € ${String.format("%.2f", discountPerPerson)}", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                             },
@@ -300,7 +302,7 @@ fun PersonDetailScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("TOTALE", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Black)
+                    Text(viewModel.t("total").uppercase(), style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Black)
                     Text("€ ${String.format("%.2f", total)}", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Black)
                 }
             }

@@ -43,19 +43,19 @@ fun ParticipantsScreen(
     if (showClearHistoryDialog) {
         AlertDialog(
             onDismissRequest = { showClearHistoryDialog = false },
-            title = { Text("Cancella Cronologia?") },
-            text = { Text("Tutti i nomi suggeriti verranno eliminati definitivamente.") },
+            title = { Text(viewModel.t("clear_history_title")) },
+            text = { Text(viewModel.t("clear_history_desc")) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.clearHistory()
                     showClearHistoryDialog = false
                 }) {
-                    Text("CANCELLA", color = MaterialTheme.colorScheme.error)
+                    Text(viewModel.t("delete"), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearHistoryDialog = false }) {
-                    Text("ANNULLA")
+                    Text(viewModel.t("cancel"))
                 }
             }
         )
@@ -64,16 +64,16 @@ fun ParticipantsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("PARTECIPANTI", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
+                title = { Text(viewModel.t("participants_title").uppercase(), fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 1.sp) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = viewModel.t("back"))
                     }
                 },
                 actions = {
                     if (savedNames.isNotEmpty()) {
                         IconButton(onClick = { showClearHistoryDialog = true }) {
-                            Icon(Icons.Default.HistoryToggleOff, contentDescription = "Pulisci cronologia", tint = Color.White)
+                            Icon(Icons.Default.HistoryToggleOff, contentDescription = viewModel.t("cleaning_history"), tint = Color.White)
                         }
                     }
                 },
@@ -104,7 +104,7 @@ fun ParticipantsScreen(
                     OutlinedTextField(
                         value = personCount,
                         onValueChange = { personCount = it },
-                        label = { Text("Num. Persone", fontSize = 12.sp) },
+                        label = { Text(viewModel.t("num_people"), fontSize = 12.sp) },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         shape = RoundedCornerShape(8.dp)
@@ -122,7 +122,7 @@ fun ParticipantsScreen(
                     ) {
                         Icon(Icons.Default.GroupAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Genera")
+                        Text(viewModel.t("generate"))
                     }
                 }
             }
@@ -137,7 +137,7 @@ fun ParticipantsScreen(
                 OutlinedTextField(
                     value = newName,
                     onValueChange = { newName = it },
-                    label = { Text("Aggiungi per nome") },
+                    label = { Text(viewModel.t("add_by_name")) },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp)
                 )
@@ -151,14 +151,14 @@ fun ParticipantsScreen(
                         containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Aggiungi")
+                    Icon(Icons.Default.Add, contentDescription = viewModel.t("add"))
                 }
             }
             
             // Reorderable Saved Names with Deletion
             if (savedNames.isNotEmpty()) {
                 Text(
-                    "SUGGERITI (Trascina o premi X)", 
+                    viewModel.t("suggested_drag"), 
                     style = MaterialTheme.typography.labelSmall, 
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
@@ -248,7 +248,7 @@ fun ParticipantsScreen(
 
             Spacer(Modifier.height(16.dp))
             
-            Text("LISTA CORRENTE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text(viewModel.t("current_list"), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(top = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
